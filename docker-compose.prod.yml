@@ -1,0 +1,14 @@
+# Production override — use images from GHCR after CD pipeline publishes them.
+# Usage:
+#   export GHCR_OWNER=your-github-username
+#   export IMAGE_TAG=latest
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  backend:
+    image: ghcr.io/${GHCR_OWNER:-your-org}/node_typescript_advance_app/backend:${IMAGE_TAG:-latest}
+    build: !reset null
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER:-your-org}/node_typescript_advance_app/frontend:${IMAGE_TAG:-latest}
+    build: !reset null

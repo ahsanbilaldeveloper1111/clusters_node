@@ -1,0 +1,1 @@
+-- Seed data is applied via: npm run db:seed (uses bcrypt for passwords)
