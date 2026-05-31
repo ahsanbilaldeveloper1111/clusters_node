@@ -4,7 +4,7 @@
 import { createServer } from 'node:http';
 import { env } from './config/env.js';
 import { createApp } from './app.js';
-+import { logger } from './utils/logger.js';
+import { logger } from './utils/logger.js';
 import { pool } from './database/pool.js';
 import { getRedis } from './cache/redis.js';
 

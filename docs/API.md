@@ -70,6 +70,53 @@ Window functions per user.
 
 LATERAL join — top stock per category.
 
+### POST `/analytics/calls/last-called-at`
+
+Returns the most recent `called_at` for each requested remote party number. Numbers with no calls return `last_called_at: null`.
+
+```json
+{
+  "remote_party_numbers": ["15551234567", "15559876543", "15550009999"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "data": [
+    { "remote_party_number": "15550009999", "last_called_at": null },
+    { "remote_party_number": "15551234567", "last_called_at": "2026-05-22T12:00:00.000Z" },
+    { "remote_party_number": "15559876543", "last_called_at": "2026-05-23T10:00:00.000Z" }
+  ]
+}
+```
+
+Max **50,000** numbers per request.
+
+### POST `/analytics/calls/count`
+
+Returns a single total: how many `call_analytics` rows match any number in the filter list. Uses a temp table + indexed join so large filter sets (up to **5,000,000** distinct numbers) stay efficient.
+
+```json
+{
+  "remote_party_numbers": ["15551234567", "15559876543"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "data": {
+    "call_count": 3,
+    "filter_count": 2
+  }
+}
+```
+
+`filter_count` is the number of distinct values loaded into the filter set. Request body limit: **100MB** (registered before the global JSON parser).
+
 ### POST `/analytics/compute`
 
 Offloads CPU work to a Worker Thread.

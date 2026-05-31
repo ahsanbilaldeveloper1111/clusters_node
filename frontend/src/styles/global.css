@@ -214,13 +214,41 @@ label {
   color: var(--muted);
 }
 
-input {
+input,
+textarea {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.6rem 0.75rem;
   color: var(--text);
   font-family: inherit;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 6rem;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.call-count-stat {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent-2);
+  margin: 0.5rem 0;
+}
+
+.mb-1 {
+  margin-bottom: 1rem;
+}
+
+.mt-1 {
+  margin-top: 1rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
 }
 
 button {

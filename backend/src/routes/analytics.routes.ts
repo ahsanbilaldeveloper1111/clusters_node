@@ -1,11 +1,19 @@
-import { Router } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import {
   getSalesByCategory,
   getUserOrderSummaries,
   getTopProductsPerCategory,
 } from '../database/queries/analytics.queries.js';
+import {
+  getLastCalledAtByRemotePartyNumbers,
+  countCallsByRemotePartyNumbers,
+} from '../database/queries/call-analytics.queries.js';
 import { authenticate, requireRole } from '../middleware/auth.middleware.js';
 import { runCpuTask } from '../workers/worker-pool.js';
+import {
+  lastCalledAtBodySchema,
+  callCountBodySchema,
+} from './call-analytics.schemas.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -40,6 +48,17 @@ router.get('/top-products', async (_req, res, next) => {
   }
 });
 
+/** Last called_at per remote party number (moderate batch sizes) */
+router.post('/calls/last-called-at', async (req, res, next) => {
+  try {
+    const { remote_party_numbers } = lastCalledAtBodySchema.parse(req.body);
+    const data = await getLastCalledAtByRemotePartyNumbers(remote_party_numbers);
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /** Demonstrates Worker Thread offload for CPU-bound analytics */
 router.post('/compute', async (req, res, next) => {
   try {
@@ -62,5 +81,25 @@ router.post('/compute', async (req, res, next) => {
     next(err);
   }
 });
+
+/** Bulk call count — handler exported for app-level JSON body limit */
+export async function handleCallCount(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { remote_party_numbers } = callCountBodySchema.parse(req.body);
+    const result = await countCallsByRemotePartyNumbers(remote_party_numbers);
+    res.json({
+      data: {
+        call_count: Number(result.call_count),
+        filter_count: result.filter_count,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
 
 export default router;

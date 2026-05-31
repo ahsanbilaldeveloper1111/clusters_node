@@ -9,11 +9,17 @@
 | `orders` | User orders, status enum, JSONB `shipping_address` |
 | `order_items` | Line items with **generated** `line_total` column |
 | `audit_logs` | Change tracking with JSONB `payload` |
+| `call_analytics` | CDR-style call rows: `remote_party_number`, `called_at` |
 
 ### Extensions
 
 - `uuid-ossp` — UUID primary keys
 - `pg_trgm` — Trigram similarity for product name search
+
+## Call analytics queries (`call-analytics.queries.ts`)
+
+- **Last called at:** `unnest($1)` + `LEFT JOIN call_analytics` + `MAX(called_at)` — every input number is returned.
+- **Bulk call count:** filter numbers loaded into a **temp table** (chunked `INSERT`, primary key for hash join), then `COUNT(*)` via `INNER JOIN` on `remote_party_number` (indexed).
 
 ## Advanced queries (in `analytics.queries.ts`)
 

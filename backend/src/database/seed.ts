@@ -28,6 +28,22 @@ async function seed(): Promise<void> {
      ON CONFLICT (sku) DO NOTHING`
   );
 
+  try {
+    await pool.query(
+      `INSERT INTO call_analytics (remote_party_number, called_at)
+       SELECT v.remote_party_number, v.called_at
+       FROM (VALUES
+         ('15551234567'::varchar, NOW() - INTERVAL '1 day'),
+         ('15551234567', NOW() - INTERVAL '3 days'),
+         ('15559876543', NOW() - INTERVAL '2 hours'),
+         ('15550001111', NOW() - INTERVAL '30 days')
+       ) AS v(remote_party_number, called_at)
+       WHERE NOT EXISTS (SELECT 1 FROM call_analytics LIMIT 1)`
+    );
+  } catch {
+    /* table may not exist until migration 03 is applied */
+  }
+
   logger.info('Seed completed. Default password: Password123!');
   await pool.end();
 }

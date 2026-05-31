@@ -56,3 +56,13 @@ export interface CpuTaskResult {
   durationMs: number;
   workerThread: boolean;
 }
+
+export interface LastCalledAtRow {
+  remote_party_number: string;
+  last_called_at: string | null;
+}
+
+export interface CallCountResult {
+  call_count: number;
+  filter_count: number;
+}

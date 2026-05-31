@@ -9,7 +9,8 @@ import { errorHandler } from './middleware/error.middleware.js';
 import authRoutes from './routes/auth.routes.js';
 import productRoutes from './routes/products.routes.js';
 import orderRoutes from './routes/orders.routes.js';
-import analyticsRoutes from './routes/analytics.routes.js';
+import analyticsRoutes, { handleCallCount } from './routes/analytics.routes.js';
+import { authenticate, requireRole } from './middleware/auth.middleware.js';
 import systemRoutes from './routes/system.routes.js';
 
 export function createApp(): express.Application {
@@ -18,6 +19,16 @@ export function createApp(): express.Application {
   app.use(helmet());
   app.use(cors({ origin: true, credentials: true }));
   app.use(compression());
+
+  /** Large payload for millions of filter numbers (must run before global json parser) */
+  app.post(
+    '/api/analytics/calls/count',
+    express.json({ limit: '100mb' }),
+    authenticate,
+    requireRole('admin', 'manager'),
+    handleCallCount
+  );
+
   app.use(express.json({ limit: '1mb' }));
   app.use(
     pinoHttp({
