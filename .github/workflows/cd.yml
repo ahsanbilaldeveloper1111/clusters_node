@@ -1,4 +1,4 @@
-# CD — build and push Docker images to GitHub Container Registry (GHCR)
+# CD — build, push Docker images to GHCR, deploy to Kubernetes (optional)
 name: CD
 
 on:
@@ -6,6 +6,12 @@ on:
     branches: [main, master]
     tags: ["v*.*.*", "v*"]
   workflow_dispatch:
+    inputs:
+      deploy_kubernetes:
+        description: Deploy to Kubernetes cluster (requires KUBE_CONFIG secret)
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: cd-${{ github.workflow }}-${{ github.ref }}
@@ -31,6 +37,9 @@ jobs:
           - service: frontend
             dockerfile: docker/frontend.Dockerfile
             image: frontend
+          - service: frontend-k8s
+            dockerfile: docker/frontend.k8s.Dockerfile
+            image: frontend-k8s
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,24 +78,102 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-compose:
-    name: Deployment summary
+  kubernetes:
+    name: Kubernetes deploy
     runs-on: ubuntu-latest
     needs: publish
     if: github.event_name != 'pull_request'
     steps:
-      - name: Print image references
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: "5.4.3"
+
+      - name: Write production secrets
+        working-directory: k8s/overlays/production
         run: |
-          echo "## Published images" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Service | Image |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| backend | \`${{ env.REGISTRY }}/${{ github.repository }}/backend:latest\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| frontend | \`${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Pull on your server:" >> "$GITHUB_STEP_SUMMARY"
-          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
-          echo "docker pull ${{ env.REGISTRY }}/${{ github.repository }}/backend:latest" >> "$GITHUB_STEP_SUMMARY"
-          echo "docker pull ${{ env.REGISTRY }}/${{ github.repository }}/frontend:latest" >> "$GITHUB_STEP_SUMMARY"
-          echo "docker compose up -d" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${{ secrets.K8S_SECRETS_ENV }}" ]]; then
+            printf '%s' "${{ secrets.K8S_SECRETS_ENV }}" > secrets.env
+          else
+            cp secrets.env.example secrets.env
+            echo "::warning::Using secrets.env.example — set repository secret K8S_SECRETS_ENV for production"
+          fi
+
+      - name: Set GHCR image tags
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: bash scripts/k8s-cd-prepare.sh
+
+      - name: Validate manifests
+        run: |
+          kubectl kustomize k8s/overlays/production > /tmp/k8s-production.yaml
+          echo "Rendered $(wc -l < /tmp/k8s-production.yaml) lines"
+
+      - name: Upload Kubernetes manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-production-manifests
+          path: /tmp/k8s-production.yaml
+          retention-days: 30
+
+      - name: Deploy to cluster
+        if: >-
+          vars.DEPLOY_K8S == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.deploy_kubernetes == true)
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          if [[ -z "$KUBE_CONFIG" ]]; then
+            echo "::error::KUBE_CONFIG secret is required for deploy. Add base64-encoded kubeconfig to repository secrets."
+            exit 1
+          fi
+          mkdir -p ~/.kube
+          echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl apply -k k8s/overlays/production
+          kubectl delete job db-migrate db-seed -n enterprise-app --ignore-not-found
+          kubectl apply -k k8s/overlays/production
+          kubectl wait --for=condition=available deployment/postgres -n enterprise-app --timeout=300s
+          kubectl wait --for=condition=complete job/db-migrate -n enterprise-app --timeout=180s || true
+          kubectl wait --for=condition=complete job/db-seed -n enterprise-app --timeout=180s || true
+          kubectl rollout status deployment/backend -n enterprise-app --timeout=300s
+          kubectl rollout status deployment/frontend -n enterprise-app --timeout=300s
+
+      - name: Deployment summary
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "## CD — Published images"
+            echo ""
+            echo "| Service | Image |"
+            echo "|---------|-------|"
+            echo "| backend | \`${REGISTRY}/${REPO}/backend:${SHA}\` |"
+            echo "| frontend (Compose) | \`${REGISTRY}/${REPO}/frontend:${SHA}\` |"
+            echo "| frontend (K8s) | \`${REGISTRY}/${REPO}/frontend-k8s:${SHA}\` |"
+            echo ""
+            echo "## Kubernetes — manual deploy"
+            echo ""
+            echo "Download artifact **k8s-production-manifests** or run:"
+            echo '```bash'
+            echo "export GITHUB_REPOSITORY=${REPO}"
+            echo "export IMAGE_TAG=${SHA}"
+            echo "bash scripts/k8s-cd-prepare.sh"
+            echo "kubectl apply -k k8s/overlays/production"
+            echo '```'
+            echo ""
+            echo "## Auto-deploy (optional)"
+            echo ""
+            echo "1. Add secret \`KUBE_CONFIG\` (base64 kubeconfig)"
+            echo "2. Add secret \`K8S_SECRETS_ENV\` (contents of production secrets.env)"
+            echo "3. Set variable \`DEPLOY_K8S=true\` **or** run workflow with **deploy_kubernetes** checked"
+          } >> "$GITHUB_STEP_SUMMARY"

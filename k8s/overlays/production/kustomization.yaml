@@ -18,11 +18,11 @@ patches:
   - path: patches/backend-resources.yaml
   - path: patches/ingress-production.yaml
 
-# Replace with your registry after CD publishes to GHCR
+# CD pipeline runs: kustomize edit set image enterprise-backend=ghcr.io/<repo>/backend:<tag>
 images:
   - name: enterprise-backend
-    newName: ghcr.io/YOUR_GITHUB_USER/node_typescript_advance_app/backend
+    newName: enterprise-backend
     newTag: latest
   - name: enterprise-frontend
-    newName: ghcr.io/YOUR_GITHUB_USER/node_typescript_advance_app/frontend
+    newName: enterprise-frontend
     newTag: latest

@@ -74,7 +74,7 @@ npm run dev
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | [CI](.github/workflows/ci.yml) | PR / push | Build TypeScript, run DB migrations, build Docker images |
-| [CD](.github/workflows/cd.yml) | `main` / tags `v*` | Push images to GitHub Container Registry (GHCR) |
+| [CD](.github/workflows/cd.yml) | `main` / tags `v*` | Push images to GHCR + Kubernetes manifests (optional deploy) |
 
 Details: [docs/CI_CD.md](docs/CI_CD.md)
 

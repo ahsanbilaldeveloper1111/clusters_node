@@ -43,13 +43,20 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
 
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: "5.4.3"
+
       - name: Validate Kubernetes manifests
         run: |
           kubectl kustomize k8s/overlays/local > /tmp/k8s-local.yaml
           cp k8s/overlays/production/secrets.env.example k8s/overlays/production/secrets.env
+          GITHUB_REPOSITORY="${{ github.repository }}" IMAGE_TAG=ci-test bash scripts/k8s-cd-prepare.sh
           kubectl kustomize k8s/overlays/production > /tmp/k8s-prod.yaml
+          git checkout -- k8s/overlays/production/kustomization.yaml 2>/dev/null || true
           rm -f k8s/overlays/production/secrets.env
-          echo "Kustomize build OK ($(wc -l < /tmp/k8s-local.yaml) lines local)"
+          echo "Kustomize build OK (local: $(wc -l < /tmp/k8s-local.yaml) lines, prod: $(wc -l < /tmp/k8s-prod.yaml) lines)"
 
       - name: Upload backend dist
         uses: actions/upload-artifact@v4
@@ -116,13 +123,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build frontend image
+      - name: Build frontend image (Compose)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/frontend.Dockerfile
           push: false
           tags: enterprise-frontend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image (Kubernetes)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/frontend.k8s.Dockerfile
+          push: false
+          tags: enterprise-frontend-k8s:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
