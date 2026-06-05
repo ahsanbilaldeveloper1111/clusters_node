@@ -74,5 +74,6 @@ HTTP Request
 ## Scalability notes
 
 - Scale **horizontally** by running more backend containers behind a load balancer.
-- **PostgreSQL** connection pool per worker — tune `DB_POOL_MAX` × worker count to avoid exhausting DB connections.
+- **Kubernetes:** use the [Kubernetes guide](KUBERNETES.md) — HPA scales backend **Pods**; each pod still runs Node **cluster workers** (`CLUSTER_WORKERS`).
+- **PostgreSQL** connection pool per worker — tune `DB_POOL_MAX` × worker count × pod replicas to avoid exhausting DB connections.
 - **Redis** optional — app works without it (cache misses only).

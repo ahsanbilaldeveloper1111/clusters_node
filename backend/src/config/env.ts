@@ -12,7 +12,10 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   DB_POOL_MIN: z.coerce.number().default(2),
   DB_POOL_MAX: z.coerce.number().default(20),
-  DB_SSL: z.coerce.boolean().default(false),
+  DB_SSL: z
+    .union([z.boolean(), z.string()])
+    .default(false)
+    .transform((v) => (typeof v === 'boolean' ? v : v === 'true' || v === '1')),
   REDIS_URL: z.string().optional(),
   JWT_SECRET: z.string().min(16).default('dev-secret-change-in-production-min-16-chars'),
   JWT_EXPIRES_IN: z.string().default('1h'),

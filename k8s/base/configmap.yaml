@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: enterprise-app
+  labels:
+    app.kubernetes.io/name: enterprise-app
+    app.kubernetes.io/component: config
+data:
+  NODE_ENV: production
+  PORT: "3000"
+  LOG_LEVEL: info
+  CLUSTER_WORKERS: "2"
+  DB_POOL_MIN: "2"
+  DB_POOL_MAX: "10"
+  # Use true/false strings; app parses explicitly (Zod coerce.boolean treats "false" as true)
+  DB_SSL: "false"
+  JWT_EXPIRES_IN: 1h
+  POSTGRES_USER: app_user
+  POSTGRES_DB: enterprise_db
+  REDIS_URL: redis://redis-service:6379

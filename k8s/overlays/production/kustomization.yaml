@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: enterprise-app
+
+resources:
+  - ../../base
+
+secretGenerator:
+  - name: app-secrets
+    envs:
+      - secrets.env
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  - path: patches/replicas.yaml
+  - path: patches/backend-resources.yaml
+  - path: patches/ingress-production.yaml
+
+# Replace with your registry after CD publishes to GHCR
+images:
+  - name: enterprise-backend
+    newName: ghcr.io/YOUR_GITHUB_USER/node_typescript_advance_app/backend
+    newTag: latest
+  - name: enterprise-frontend
+    newName: ghcr.io/YOUR_GITHUB_USER/node_typescript_advance_app/frontend
+    newTag: latest

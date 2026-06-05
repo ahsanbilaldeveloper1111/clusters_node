@@ -10,6 +10,11 @@
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down -v",
     "docker:logs": "docker compose logs -f",
+    "k8s:build": "bash scripts/k8s-build-images.sh",
+    "k8s:deploy": "bash scripts/k8s-deploy-local.sh",
+    "k8s:manifests": "kubectl kustomize k8s/overlays/local",
+    "k8s:delete": "kubectl delete -k k8s/overlays/local --ignore-not-found",
+    "k8s:fix": "bash scripts/k8s-fix-redeploy.sh",
     "db:migrate": "npm run db:migrate -w backend",
     "db:seed": "npm run db:seed -w backend"
   },

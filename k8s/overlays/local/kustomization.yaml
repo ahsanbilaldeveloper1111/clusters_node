@@ -1,0 +1,30 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: enterprise-app
+
+resources:
+  - ../../base
+
+secretGenerator:
+  - name: app-secrets
+    envs:
+      - secrets.env
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  - path: patches/replicas.yaml
+  - path: patches/frontend-service-expose.yaml
+    target:
+      kind: Service
+      name: frontend-service
+  - path: patches/ingress-local.yaml
+
+images:
+  - name: enterprise-backend
+    newName: enterprise-backend
+    newTag: local-v2
+  - name: enterprise-frontend
+    newName: enterprise-frontend
+    newTag: local-v2

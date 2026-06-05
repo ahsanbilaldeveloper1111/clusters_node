@@ -40,6 +40,17 @@ jobs:
       - name: Build frontend
         run: npm run build -w frontend
 
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubectl kustomize k8s/overlays/local > /tmp/k8s-local.yaml
+          cp k8s/overlays/production/secrets.env.example k8s/overlays/production/secrets.env
+          kubectl kustomize k8s/overlays/production > /tmp/k8s-prod.yaml
+          rm -f k8s/overlays/production/secrets.env
+          echo "Kustomize build OK ($(wc -l < /tmp/k8s-local.yaml) lines local)"
+
       - name: Upload backend dist
         uses: actions/upload-artifact@v4
         with:

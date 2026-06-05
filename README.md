@@ -1,6 +1,6 @@
 # Enterprise Advanced App
 
-A production-style **Node.js + TypeScript** monorepo demonstrating enterprise patterns: **cluster mode**, **worker threads**, **PostgreSQL advanced SQL**, **Redis caching**, **Docker**, and a **React + TypeScript** frontend with advanced type patterns.
+A production-style **Node.js + TypeScript** monorepo demonstrating enterprise patterns: **cluster mode**, **worker threads**, **PostgreSQL advanced SQL**, **Redis caching**, **Docker**, **Kubernetes**, and a **React + TypeScript** frontend with advanced type patterns.
 
 ## Quick start
 
@@ -51,6 +51,8 @@ npm run dev
 │       └── pages/           # UI screens
 ├── database/init/           # SQL schema (Docker init + migrations)
 ├── docker/                  # Multi-stage Dockerfiles + nginx
+├── k8s/                     # Kubernetes manifests (Kustomize base + overlays)
+├── scripts/                 # k8s-build-images.sh, k8s-deploy-local.sh
 ├── docs/                    # Detailed architecture guides
 └── docker-compose.yml
 ```
@@ -65,6 +67,7 @@ npm run dev
 | **Cache** | Redis with graceful degradation |
 | **Frontend** | Advanced TS types, generic API client, role-based UI |
 | **Docker** | Multi-stage builds, health checks, nginx reverse proxy |
+| **Kubernetes** | Kustomize, HPA, PDB, NetworkPolicy, Ingress, Jobs, init containers |
 
 ## CI/CD
 
@@ -85,6 +88,8 @@ If you see `auth.docker.io` or DNS `i/o timeout`, see **[docs/TROUBLESHOOTING.md
 - [Cluster & Worker Threads](docs/CLUSTER_AND_WORKERS.md)
 - [PostgreSQL & queries](docs/DATABASE.md)
 - [Docker deployment](docs/DOCKER.md)
+- [Kubernetes deployment](docs/KUBERNETES.md)
+- [Kubernetes deploy flow (detailed)](docs/KUBERNETES_DEPLOYMENT_FLOW.md)
 - [API reference](docs/API.md)
 - [TypeScript patterns](docs/TYPESCRIPT.md)
 - [CI/CD pipeline](docs/CI_CD.md)
@@ -96,6 +101,9 @@ If you see `auth.docker.io` or DNS `i/o timeout`, see **[docs/TROUBLESHOOTING.md
 | `npm run dev` | Backend cluster + frontend dev server |
 | `npm run build` | Build both workspaces |
 | `npm run docker:up` | Full stack in Docker |
+| `npm run k8s:build` | Build images for local Kubernetes |
+| `npm run k8s:deploy` | Deploy local Kustomize overlay |
+| `npm run k8s:manifests` | Render manifests (dry-run) |
 | `npm run db:migrate` | Apply SQL migrations |
 | `npm run db:seed` | Seed users & products |
 

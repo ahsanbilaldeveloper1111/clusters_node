@@ -61,6 +61,10 @@ docker compose exec backend sh -c "cd /app && npm run db:seed -w backend"
 docker compose down -v
 ```
 
+## Kubernetes
+
+For multi-pod deployment with HPA, Ingress, and NetworkPolicies, see **[KUBERNETES.md](KUBERNETES.md)**.
+
 ## Production checklist
 
 - [ ] Set strong `JWT_SECRET` via env / secrets manager

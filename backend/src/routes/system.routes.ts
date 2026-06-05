@@ -6,7 +6,23 @@ import { getRedis } from '../cache/redis.js';
 
 const router = Router();
 
-router.get('/health', async (_req, res) => {
+/** Liveness — process is up (do not check DB; avoids restart loops when DB is slow) */
+router.get('/health/live', (_req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    worker: {
+      pid: process.pid,
+      isPrimary: cluster.isPrimary,
+      workerId: process.env['WORKER_ID'] ?? null,
+    },
+    uptime: process.uptime(),
+  });
+});
+
+async function readinessHandler(
+  _req: import('express').Request,
+  res: import('express').Response
+): Promise<void> {
   const dbOk = await healthCheck();
   let redisOk = true;
   const redis = getRedis();
@@ -28,7 +44,13 @@ router.get('/health', async (_req, res) => {
     },
     uptime: process.uptime(),
   });
-});
+}
+
+/** Readiness — dependencies must be healthy before receiving traffic */
+router.get('/health/ready', readinessHandler);
+
+/** Backwards-compatible alias (load balancers, Docker healthcheck) */
+router.get('/health', readinessHandler);
 
 router.get('/api/system/info', (_req, res) => {
   res.json({

@@ -1,0 +1,42 @@
+# Local cluster: 2 pods per service (where supported)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: enterprise-app
+spec:
+  replicas: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: enterprise-app
+spec:
+  replicas: 2
+---
+# Postgres: 1 pod only — one ReadWriteOnce PVC cannot mount on two pods
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: enterprise-app
+spec:
+  replicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: enterprise-app
+spec:
+  replicas: 2
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: enterprise-app
+spec:
+  minReplicas: 2
+  maxReplicas: 4
