@@ -12,6 +12,19 @@ if [[ ! -f "$OVERLAY/secrets.env" ]]; then
   exit 1
 fi
 
+if ! kubectl cluster-info &>/dev/null; then
+  echo "ERROR: Cannot reach Kubernetes API."
+  echo ""
+  echo "Fix (Docker Desktop):"
+  echo "  1. Open Docker Desktop → Settings → Kubernetes → Enable Kubernetes"
+  echo "  2. Wait until it shows 'Kubernetes is running'"
+  echo "  3. Run: kubectl cluster-info"
+  echo ""
+  echo "If cluster-info still fails, restart Docker Desktop or run:"
+  echo "  kubectl config use-context docker-desktop"
+  exit 1
+fi
+
 echo "Applying Kustomize overlay: $OVERLAY"
 kubectl apply -k "$OVERLAY"
 
