@@ -10,7 +10,8 @@ Deploy with **Kustomize**:
 **Guides:**
 
 - [KUBERNETES.md](../docs/KUBERNETES.md) — setup, commands, troubleshooting  
-- [KUBERNETES_DEPLOYMENT_FLOW.md](../docs/KUBERNETES_DEPLOYMENT_FLOW.md) — deploy order, request flow, every manifest file explained
+- [KUBERNETES_DEPLOYMENT_FLOW.md](../docs/KUBERNETES_DEPLOYMENT_FLOW.md) — deploy order, every manifest file  
+- [ARGOCD.md](../docs/ARGOCD.md) — GitOps with Argo CD
 
 ```bash
 npm run k8s:build

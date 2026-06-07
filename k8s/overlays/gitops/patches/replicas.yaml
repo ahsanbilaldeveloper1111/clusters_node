@@ -1,4 +1,4 @@
-# Production: scale app tier (Postgres/Redis stay 1 unless you use HA operators)
+# Production GitOps: scale app tier (Postgres stays 1 — single PVC)
 apiVersion: apps/v1
 kind: Deployment
 metadata:

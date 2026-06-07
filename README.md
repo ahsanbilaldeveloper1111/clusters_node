@@ -90,6 +90,7 @@ If you see `auth.docker.io` or DNS `i/o timeout`, see **[docs/TROUBLESHOOTING.md
 - [Docker deployment](docs/DOCKER.md)
 - [Kubernetes deployment](docs/KUBERNETES.md)
 - [Kubernetes deploy flow (detailed)](docs/KUBERNETES_DEPLOYMENT_FLOW.md)
+- [Argo CD GitOps](docs/ARGOCD.md)
 - [API reference](docs/API.md)
 - [TypeScript patterns](docs/TYPESCRIPT.md)
 - [CI/CD pipeline](docs/CI_CD.md)

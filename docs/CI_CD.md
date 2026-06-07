@@ -98,6 +98,16 @@ kubectl apply -k k8s/overlays/production
 
 See [KUBERNETES.md](KUBERNETES.md) for cluster prerequisites.
 
+## Argo CD GitOps (recommended for production)
+
+Instead of `kubectl apply` from CI, use **Argo CD** to sync from Git:
+
+1. CD pushes images to GHCR
+2. CD commits tags to `k8s/overlays/gitops/` (when `USE_ARGOCD_GITOPS=true`)
+3. Argo CD auto-syncs the cluster
+
+Setup: [ARGOCD.md](ARGOCD.md)
+
 ## Branch protection (recommended)
 
 On `main`:

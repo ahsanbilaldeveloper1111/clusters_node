@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      gitops_commit:
+        description: Commit image tags to gitops overlay (for Argo CD)
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: cd-${{ github.workflow }}-${{ github.ref }}
@@ -176,4 +181,51 @@ jobs:
             echo "1. Add secret \`KUBE_CONFIG\` (base64 kubeconfig)"
             echo "2. Add secret \`K8S_SECRETS_ENV\` (contents of production secrets.env)"
             echo "3. Set variable \`DEPLOY_K8S=true\` **or** run workflow with **deploy_kubernetes** checked"
+            echo ""
+            echo "## Argo CD GitOps (recommended)"
+            echo ""
+            echo "Set \`USE_ARGOCD_GITOPS=true\` or run with **gitops_commit** — updates \`k8s/overlays/gitops\` and Argo CD syncs."
+            echo "See [docs/ARGOCD.md](docs/ARGOCD.md)"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  gitops:
+    name: Argo CD GitOps — update manifests
+    runs-on: ubuntu-latest
+    needs: publish
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: "5.4.3"
+
+      - name: Update gitops image tags
+        if: >-
+          vars.USE_ARGOCD_GITOPS == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.gitops_commit == true)
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: bash scripts/argocd-update-gitops-images.sh
+
+      - name: Commit and push gitops overlay
+        if: >-
+          vars.USE_ARGOCD_GITOPS == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.gitops_commit == true)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/overlays/gitops/kustomization.yaml
+          if git diff --staged --quiet; then
+            echo "No gitops image changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(gitops): set images to ${{ github.sha }}"
+          git push

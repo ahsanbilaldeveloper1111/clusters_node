@@ -1,0 +1,18 @@
+# External LoadBalancer for Argo CD UI — keeps upstream argocd-server Service unchanged
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-server-external
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-server-external
+    app.kubernetes.io/part-of: argocd
+spec:
+  type: LoadBalancer
+  ports:
+    - name: https
+      port: 8082
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: argocd-server

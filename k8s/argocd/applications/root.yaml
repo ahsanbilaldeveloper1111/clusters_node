@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: enterprise-root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: enterprise
+  source:
+    repoURL: git@github.com:ahsanbilaldeveloper1111/clusters_node.git
+    targetRevision: main
+    path: k8s/argocd/applications
+    directory:
+      recurse: false
+      include: "*.yaml"
+      exclude: "root.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

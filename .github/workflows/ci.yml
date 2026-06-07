@@ -56,7 +56,8 @@ jobs:
           kubectl kustomize k8s/overlays/production > /tmp/k8s-prod.yaml
           git checkout -- k8s/overlays/production/kustomization.yaml 2>/dev/null || true
           rm -f k8s/overlays/production/secrets.env
-          echo "Kustomize build OK (local: $(wc -l < /tmp/k8s-local.yaml) lines, prod: $(wc -l < /tmp/k8s-prod.yaml) lines)"
+          kubectl kustomize k8s/overlays/gitops > /tmp/k8s-gitops.yaml
+          echo "Kustomize OK (local: $(wc -l < /tmp/k8s-local.yaml), prod: $(wc -l < /tmp/k8s-prod.yaml), gitops: $(wc -l < /tmp/k8s-gitops.yaml) lines)"
 
       - name: Upload backend dist
         uses: actions/upload-artifact@v4

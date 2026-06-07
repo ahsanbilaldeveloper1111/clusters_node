@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: enterprise-app
+
+# GitOps overlay for Argo CD — no secretGenerator (secrets bootstrapped separately)
+resources:
+  - ../../base
+
+patches:
+  - path: patches/replicas.yaml
+  - path: patches/backend-resources.yaml
+  - path: patches/ingress-production.yaml
+
+# CD / Argo CD Image Updater commits newTag here on each release
+images:
+  - name: enterprise-backend
+    newName: ghcr.io/ahsanbilaldeveloper1111/clusters_node/backend
+    newTag: latest
+  - name: enterprise-frontend
+    newName: ghcr.io/ahsanbilaldeveloper1111/clusters_node/frontend-k8s
+    newTag: latest

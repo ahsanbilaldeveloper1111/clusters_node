@@ -1,0 +1,46 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: enterprise-app
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/part-of: enterprise-advanced-app
+spec:
+  project: enterprise
+  source:
+    repoURL: git@github.com:ahsanbilaldeveloper1111/clusters_node.git
+    targetRevision: main
+    path: k8s/overlays/gitops
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: enterprise-app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=false
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    # app-secrets is created outside Git (bootstrap script / External Secrets)
+    - group: ""
+      kind: Secret
+      name: app-secrets
+      namespace: enterprise-app
+      jsonPointers:
+        - /data
+    # Jobs are recreated on migration; ignore completion state drift
+    - group: batch
+      kind: Job
+      jsonPointers:
+        - /status
