@@ -1,0 +1,24 @@
+        # Copy to terraform.tfvars and customize before: terraform plan -var-file=terraform.tfvars
+
+aws_region   = "us-east-1"
+project_name = "enterprise-app"
+environment  = "production"
+
+# Cost-conscious defaults — increase for real production load
+eks_node_instance_types = ["t3.medium"]
+eks_node_desired_size   = 2
+eks_node_min_size       = 1
+eks_node_max_size       = 4
+
+db_instance_class    = "db.t3.micro"
+db_allocated_storage = 20
+
+redis_node_type = "cache.t3.micro"
+
+# DNS hostname for Ingress TLS (update k8s/overlays/production/patches/ingress-production.yaml)
+app_domain = "app.example.com"
+
+# Leave empty to auto-generate a secure JWT secret in Secrets Manager
+# jwt_secret = ""
+
+install_ingress_nginx = true
