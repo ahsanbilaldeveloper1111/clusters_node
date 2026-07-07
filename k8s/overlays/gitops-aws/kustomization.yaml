@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: enterprise-app
+
+# GitOps overlay for Argo CD on AWS EKS (RDS + ElastiCache).
+# Secrets are bootstrapped outside Git — see scripts/argocd-bootstrap-aws.sh
+resources:
+  - ../../base
+
+patches:
+  - path: ../aws-production/patches/delete-in-cluster-datastores.yaml
+  - path: ../aws-production/patches/replicas.yaml
+  - path: ../aws-production/patches/backend-resources.yaml
+  - path: ../aws-production/patches/backend-aws.yaml
+  - path: ../aws-production/patches/migrate-job-aws.yaml
+  - target:
+      kind: ConfigMap
+      name: app-config
+    path: ../aws-production/patches/configmap-aws.yaml
+  - path: ../aws-production/patches/networkpolicy-aws.yaml
+  - path: ../aws-production/patches/ingress-production.yaml
+
+# CD commits ECR image tags via: bash scripts/argocd-update-gitops-aws-images.sh
+images:
+  - name: enterprise-backend
+    newName: enterprise-backend
+    newTag: latest
+  - name: enterprise-frontend
+    newName: enterprise-frontend
+    newTag: latest

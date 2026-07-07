@@ -56,8 +56,16 @@ jobs:
           kubectl kustomize k8s/overlays/production > /tmp/k8s-prod.yaml
           git checkout -- k8s/overlays/production/kustomization.yaml 2>/dev/null || true
           rm -f k8s/overlays/production/secrets.env
+          cp k8s/overlays/aws-production/secrets.env.example k8s/overlays/aws-production/secrets.env
+          AWS_ACCOUNT_ID=123456789012 IMAGE_TAG=ci-test bash scripts/k8s-aws-prepare.sh
+          kubectl kustomize k8s/overlays/aws-production > /tmp/k8s-aws-prod.yaml
+          git checkout -- k8s/overlays/aws-production/kustomization.yaml 2>/dev/null || true
+          rm -f k8s/overlays/aws-production/secrets.env
           kubectl kustomize k8s/overlays/gitops > /tmp/k8s-gitops.yaml
-          echo "Kustomize OK (local: $(wc -l < /tmp/k8s-local.yaml), prod: $(wc -l < /tmp/k8s-prod.yaml), gitops: $(wc -l < /tmp/k8s-gitops.yaml) lines)"
+          AWS_ACCOUNT_ID=123456789012 IMAGE_TAG=ci-test bash scripts/argocd-update-gitops-aws-images.sh
+          kubectl kustomize k8s/overlays/gitops-aws > /tmp/k8s-gitops-aws.yaml
+          git checkout -- k8s/overlays/gitops-aws/kustomization.yaml 2>/dev/null || true
+          echo "Kustomize OK (local: $(wc -l < /tmp/k8s-local.yaml), prod: $(wc -l < /tmp/k8s-prod.yaml), aws: $(wc -l < /tmp/k8s-aws-prod.yaml), gitops: $(wc -l < /tmp/k8s-gitops.yaml), gitops-aws: $(wc -l < /tmp/k8s-gitops-aws.yaml) lines)"
 
       - name: Upload backend dist
         uses: actions/upload-artifact@v4
@@ -146,3 +154,27 @@ jobs:
 
       - name: Validate docker compose config
         run: docker compose config --quiet
+
+  terraform:
+    name: Terraform validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.7"
+
+      - name: Terraform fmt check
+        run: terraform fmt -check -recursive
+        working-directory: terraform
+
+      - name: Terraform init
+        run: terraform init -backend=false
+        working-directory: terraform
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: terraform

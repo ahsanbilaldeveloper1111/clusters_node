@@ -1,0 +1,9 @@
+- op: replace
+  path: /data/DB_SSL
+  value: "true"
+- op: remove
+  path: /data/REDIS_URL
+- op: remove
+  path: /data/POSTGRES_USER
+- op: remove
+  path: /data/POSTGRES_DB

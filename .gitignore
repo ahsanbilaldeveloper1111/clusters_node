@@ -10,3 +10,4 @@ coverage/
 .idea/
 *.tsbuildinfo
 k8s/overlays/production/secrets.env
+k8s/overlays/aws-production/secrets.env

@@ -51,7 +51,7 @@ spec:
             - configMapRef:
                 name: app-config
           env:
-            - name: JWT_SECRET1
+            - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: app-secrets

@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: enterprise-app
+
+resources:
+  - ../../base
+
+secretGenerator:
+  - name: app-secrets
+    envs:
+      - secrets.env
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  - path: patches/delete-in-cluster-datastores.yaml
+  - path: patches/replicas.yaml
+  - path: patches/backend-resources.yaml
+  - path: patches/backend-aws.yaml
+  - path: patches/migrate-job-aws.yaml
+  - target:
+      kind: ConfigMap
+      name: app-config
+    path: patches/configmap-aws.yaml
+  - path: patches/networkpolicy-aws.yaml
+  - path: patches/ingress-production.yaml
+
+# Set images via: bash scripts/k8s-aws-prepare.sh
+images:
+  - name: enterprise-backend
+    newName: enterprise-backend
+    newTag: latest
+  - name: enterprise-frontend
+    newName: enterprise-frontend
+    newTag: latest

@@ -73,8 +73,8 @@ npm run dev
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| [CI](.github/workflows/ci.yml) | PR / push | Build TypeScript, run DB migrations, build Docker images |
-| [CD](.github/workflows/cd.yml) | `main` / tags `v*` | Push images to GHCR + Kubernetes manifests (optional deploy) |
+| [CI](.github/workflows/ci.yml) | PR / push | Build, migrations, Docker, Kustomize (incl. aws-production), Terraform validate |
+| [CD](.github/workflows/cd.yml) | `main` / tags `v*` | GHCR + ECR publish, optional K8s / AWS EKS deploy |
 
 Details: [docs/CI_CD.md](docs/CI_CD.md)
 

@@ -130,7 +130,91 @@ Enable in GitHub:
 | Variable `USE_ARGOCD_GITOPS` | `true` |
 | Secret `K8S_SECRETS_ENV` | production secrets (for non-Argo bootstrap) |
 
-When `USE_ARGOCD_GITOPS=true`, CD **commits image tags** instead of `kubectl apply`.
+When `USE_ARGOCD_GITOPS=true`, CD **commits GHCR image tags** instead of `kubectl apply`.
+
+---
+
+## Argo CD on AWS EKS (GitOps → ECR)
+
+Deploy to **AWS EKS** with **RDS + ElastiCache** via Git — no `kubectl apply` from CI.
+
+```mermaid
+flowchart LR
+    subgraph CI_CD["GitHub Actions CD"]
+        Build[push GHCR]
+        ECR[mirror to ECR]
+        GitOps[commit gitops-aws overlay]
+    end
+
+    subgraph Git["Git repository"]
+        Overlay[k8s/overlays/gitops-aws]
+    end
+
+    subgraph AWS["AWS EKS"]
+        Argo[Argo CD]
+        App[backend + frontend]
+        RDS[(RDS)]
+        Redis[(ElastiCache)]
+    end
+
+    Build --> ECR --> GitOps --> Git --> Argo --> App
+    App --> RDS
+    App --> Redis
+```
+
+| Piece | Path | Role |
+|-------|------|------|
+| **GitOps manifest** | `k8s/overlays/gitops-aws/` | Argo sync target (ECR images, no in-cluster DB) |
+| **Application** | `k8s/argocd/applications/enterprise-app-aws.yaml` | Points Argo at `gitops-aws` |
+| **Bootstrap** | `scripts/argocd-bootstrap-aws.sh` | Creates `app-secrets` from Secrets Manager |
+
+### AWS GitOps quick start
+
+**Prerequisites:** `terraform apply` completed ([AWS_DEPLOYMENT.md](AWS_DEPLOYMENT.md)).
+
+```bash
+# 1. Install Argo CD on EKS
+aws eks update-kubeconfig --region us-east-1 --name enterprise-app-production
+EXPOSE_ARGOCD_UI=false bash scripts/argocd-install.sh
+
+# 2. Bootstrap secrets + Application
+bash scripts/argocd-bootstrap-aws.sh
+
+# 3. Enable CD GitOps (GitHub repo variables)
+#    USE_ARGOCD_GITOPS_AWS=true
+#    PUSH_ECR=true   (mirror images to ECR before Argo syncs)
+
+# 4. Push to main — CD commits ECR tags to gitops-aws → Argo auto-syncs
+```
+
+### Enable AWS GitOps in CD
+
+| Setting | Value |
+|---------|--------|
+| Variable `USE_ARGOCD_GITOPS_AWS` | `true` |
+| Variable `PUSH_ECR` | `true` (mirror GHCR → ECR) |
+| Variable `AWS_REGION` | e.g. `us-east-1` |
+| Variable `AWS_ACCOUNT_ID` | optional — CI uses `aws sts` if unset |
+| Secret `AWS_ROLE_ARN` or access keys | ECR mirror + gitops-aws image update |
+
+**Or** run CD manually with **gitops_commit_aws** checked.
+
+### AWS GitOps release flow
+
+1. CD pushes images to **GHCR**
+2. CD **ecr** job mirrors `backend` + `frontend-k8s` to **ECR**
+3. CD **gitops** job runs `scripts/argocd-update-gitops-aws-images.sh` → commits `k8s/overlays/gitops-aws/kustomization.yaml`
+4. **Argo CD** on EKS detects Git change → syncs → rolling update
+5. Migrate/seed Jobs run via Argo sync (delete stuck jobs if needed)
+
+### vs kubectl AWS deploy
+
+| | `kubectl` (`DEPLOY_AWS_EKS`) | Argo CD (`USE_ARGOCD_GITOPS_AWS`) |
+|--|------------------------------|-----------------------------------|
+| Deploy trigger | CD workflow | **Git commit** |
+| Rollback | Re-run CD | `git revert` |
+| Drift correction | Manual | **Self-heal** |
+| Recommended for | CI-driven deploys | **Production AWS** |
 
 ---
 
@@ -143,12 +227,15 @@ k8s/
 │   ├── kustomization.yaml
 │   ├── argocd-server-external.yaml   # LoadBalancer UI on :8082
 │   ├── applications/
-│   │   ├── enterprise-app.yaml    # main Application
+│   │   ├── enterprise-app.yaml    # main Application (GHCR / generic cluster)
+│   │   ├── enterprise-app-aws.yaml # AWS EKS Application (ECR + RDS/ElastiCache)
 │   │   └── root.yaml              # optional app-of-apps
 │   └── bootstrap/
 │       └── secrets.env.example
 └── overlays/
-    ├── gitops/                    # ← Argo CD syncs this
+    ├── gitops/                    # ← Argo CD syncs this (GHCR)
+    ├── gitops-aws/                # ← Argo CD syncs this on AWS EKS (ECR)
+    ├── aws-production/            # kubectl AWS deploy
     ├── production/                # kubectl / legacy CD
     └── local/                     # local dev (LoadBalancer 8081)
 ```

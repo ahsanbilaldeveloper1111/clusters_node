@@ -58,12 +58,10 @@ output "deploy_next_steps" {
   value       = <<-EOT
     1. Configure kubectl: aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}
     2. Push images to ECR (or update k8s image refs to ECR URLs)
-    3. Create k8s/overlays/production/secrets.env from Secrets Manager:
-       aws secretsmanager get-secret-value --secret-id ${aws_secretsmanager_secret.app.name} --query SecretString --output text
-    4. Set DB_SSL=true in configmap or secrets for RDS TLS
-    5. Remove postgres/redis from production overlay (use RDS + ElastiCache instead)
+    3. Sync secrets: bash scripts/k8s-aws-sync-secrets.sh
+    4. Push images to ECR (see docs/AWS_DEPLOYMENT.md)
+    5. Deploy: bash scripts/k8s-aws-deploy.sh  (or kubectl apply -k k8s/overlays/aws-production)
     6. Update ingress host to ${var.app_domain} and point DNS to ingress NLB
-    7. kubectl apply -k k8s/overlays/production
   EOT
 }
 

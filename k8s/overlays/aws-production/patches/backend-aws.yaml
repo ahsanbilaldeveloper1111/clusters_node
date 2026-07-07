@@ -1,0 +1,28 @@
+# RDS/ElastiCache are outside the cluster — drop in-cluster wait init containers
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: enterprise-app
+spec:
+  template:
+    spec:
+      initContainers: []
+      containers:
+        - name: backend
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_URL
