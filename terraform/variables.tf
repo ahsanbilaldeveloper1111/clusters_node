@@ -112,3 +112,34 @@ variable "ecr_image_retention_count" {
   type        = number
   default     = 10
 }
+
+variable "enable_documents_lambda" {
+  description = "Deploy S3 + Lambda + API Gateway for document uploads"
+  type        = bool
+  default     = true
+}
+
+variable "documents_lambda_package_type" {
+  description = "Lambda package type: Zip or Image (Docker container on ECR — recommended)"
+  type        = string
+  default     = "Image"
+}
+
+variable "documents_lambda_image_tag" {
+  description = "Docker image tag for document-upload Lambda"
+  type        = string
+  default     = "latest"
+}
+
+variable "documents_max_upload_mb" {
+  description = "Max file size (MB) for direct POST /upload API"
+  type        = number
+  default     = 10
+}
+
+variable "documents_bucket_name" {
+  description = "Optional custom S3 bucket name (globally unique)"
+  type        = string
+  default     = ""
+}
+

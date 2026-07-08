@@ -1,5 +1,7 @@
 # CI/CD Pipeline
 
+> **Full AWS walkthrough (Terraform + CI/CD with code explanations):** [AWS_FULL_DEPLOYMENT_GUIDE.md](AWS_FULL_DEPLOYMENT_GUIDE.md)
+
 GitHub Actions workflows live in `.github/workflows/`.
 
 ## CI (`ci.yml`)
@@ -11,7 +13,7 @@ Runs on every **push** and **pull request** to `main`, `master`, or `develop`.
 | **build** | `npm install`, compile backend + frontend TypeScript |
 | **build** (k8s) | `kubectl kustomize` local, production, **aws-production**, and gitops overlays |
 | **database** | Starts Postgres 16, runs migrations + seed |
-| **docker** | Builds backend, frontend (Compose), frontend-k8s images (no push), validates `docker compose config` |
+| **docker** | Builds backend, frontend, frontend-k8s, **Lambda document-upload** images (no push), validates `docker compose config` |
 | **terraform** | `terraform fmt -check`, `init`, `validate` for AWS infrastructure |
 
 ### Local equivalent
@@ -34,6 +36,7 @@ Runs on **push to `main`/`master`** and on **version tags** (`v1.0.0`, `v1.2.3`)
 |-----|----------------|
 | **publish** | Build & push 3 images to **GHCR** |
 | **ecr** | Mirror `backend` + `frontend-k8s` from GHCR to **Amazon ECR** (when enabled) |
+| **lambda-documents** | Build/push **document-upload Lambda** Docker image to ECR + `aws lambda update-function-code` |
 | **kubernetes** | Prepare production overlay, upload manifests, optional generic K8s deploy |
 | **aws-kubernetes** | Prepare `aws-production` overlay, deploy to **AWS EKS** (RDS + ElastiCache) |
 | **gitops** | Commit GHCR tags to `gitops/` or ECR tags to `gitops-aws/` for Argo CD |
@@ -70,6 +73,7 @@ GitHub → **Actions** → **CD** → **Run workflow**:
 | **deploy_aws_eks** | Deploy to AWS EKS using `k8s/overlays/aws-production` |
 | **gitops_commit** | Commit GHCR tags to `k8s/overlays/gitops` |
 | **gitops_commit_aws** | Commit ECR tags to `k8s/overlays/gitops-aws` (Argo CD on AWS) |
+| **deploy_lambda_documents** | Build/push Lambda Docker image and update function |
 
 ## Kubernetes deployment — generic cluster
 
@@ -164,6 +168,27 @@ bash scripts/k8s-aws-deploy.sh
 ```
 
 See [AWS_DEPLOYMENT.md](AWS_DEPLOYMENT.md) for full setup.
+
+### Lambda document-upload (Docker → ECR → Lambda)
+
+Requires `terraform apply` with `enable_documents_lambda = true` (creates Lambda, S3, API Gateway, ECR).
+
+| Variable / input | Purpose |
+|------------------|---------|
+| `DEPLOY_LAMBDA_DOCUMENTS` | `true` — deploy Lambda on every `main` push |
+| `PUSH_ECR` | Also triggers Lambda CD job |
+| `DEPLOY_AWS_EKS` | Also triggers Lambda CD job |
+| **deploy_lambda_documents** | Manual CD workflow checkbox |
+
+**CD `lambda-documents` job:**
+
+1. `docker build --platform linux/amd64` (`lambda/document-upload/Dockerfile`)
+2. `docker push` → `{account}.dkr.ecr.{region}.amazonaws.com/enterprise-app-production/document-upload-lambda:{sha}`
+3. `aws lambda update-function-code --image-uri ...`
+
+**CI** validates the Lambda Dockerfile builds on every PR (no push).
+
+Details: [LAMBDA_DOCUMENTS.md](LAMBDA_DOCUMENTS.md)
 
 ## Argo CD GitOps (recommended for production)
 

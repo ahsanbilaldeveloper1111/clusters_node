@@ -53,6 +53,31 @@ output "ingress_nlb_hostname" {
   value       = var.install_ingress_nginx ? try(data.kubernetes_service.ingress_nginx[0].status[0].load_balancer[0].ingress[0].hostname, "pending — run terraform apply again after NLB provisions") : "ingress-nginx not installed"
 }
 
+output "documents_lambda_ecr_url" {
+  description = "ECR repository for document-upload Lambda Docker image"
+  value       = var.enable_documents_lambda ? module.documents_lambda[0].lambda_ecr_repository_url : null
+}
+
+output "documents_lambda_image_uri" {
+  description = "Docker image URI deployed to Lambda"
+  value       = var.enable_documents_lambda ? module.documents_lambda[0].lambda_image_uri : null
+}
+
+output "documents_s3_bucket" {
+  description = "S3 bucket for uploaded documents"
+  value       = var.enable_documents_lambda ? module.documents_lambda[0].bucket_name : null
+}
+
+output "documents_api_url" {
+  description = "API Gateway base URL for document upload API"
+  value       = var.enable_documents_lambda ? module.documents_lambda[0].api_gateway_url : null
+}
+
+output "documents_presign_endpoint" {
+  description = "POST here to get a presigned S3 upload URL (recommended for large files)"
+  value       = var.enable_documents_lambda ? module.documents_lambda[0].presign_endpoint : null
+}
+
 output "deploy_next_steps" {
   description = "High-level steps after terraform apply"
   value       = <<-EOT
@@ -62,6 +87,7 @@ output "deploy_next_steps" {
     4. Push images to ECR (see docs/AWS_DEPLOYMENT.md)
     5. Deploy: bash scripts/k8s-aws-deploy.sh  (or kubectl apply -k k8s/overlays/aws-production)
     6. Update ingress host to ${var.app_domain} and point DNS to ingress NLB
+    7. Document uploads: terraform output documents_presign_endpoint (see docs/LAMBDA_DOCUMENTS.md)
   EOT
 }
 

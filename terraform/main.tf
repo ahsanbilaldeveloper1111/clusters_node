@@ -217,3 +217,26 @@ resource "helm_release" "ingress_nginx" {
 
   depends_on = [module.eks]
 }
+
+# ------------------------------------------------------------------------------
+# Lambda — document upload to S3 (Docker container on ECR + API Gateway)
+# ------------------------------------------------------------------------------
+module "documents_lambda" {
+  count  = var.enable_documents_lambda ? 1 : 0
+  source = "./modules/documents-lambda"
+
+  project_name = var.project_name
+  environment  = var.environment
+  aws_region   = var.aws_region
+
+  lambda_package_type = var.documents_lambda_package_type
+  lambda_image_tag    = var.documents_lambda_image_tag
+  lambda_source_dir   = "${path.module}/../lambda/document-upload/function.zip"
+
+  docker_build_context = "${path.module}/../lambda/document-upload"
+  docker_build_script  = "${path.module}/../scripts/lambda-document-upload-docker-push.sh"
+
+  bucket_name      = var.documents_bucket_name
+  max_upload_bytes = var.documents_max_upload_mb * 1024 * 1024
+}
+

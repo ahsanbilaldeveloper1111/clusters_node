@@ -22,3 +22,9 @@ app_domain = "app.example.com"
 # jwt_secret = ""
 
 install_ingress_nginx = true
+
+# Document upload Lambda (Docker on ECR) + S3 + API Gateway
+enable_documents_lambda       = true
+documents_lambda_package_type = "Image"
+documents_lambda_image_tag    = "latest"
+documents_max_upload_mb       = 10

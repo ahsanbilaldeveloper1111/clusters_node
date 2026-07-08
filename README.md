@@ -94,6 +94,9 @@ If you see `auth.docker.io` or DNS `i/o timeout`, see **[docs/TROUBLESHOOTING.md
 - [API reference](docs/API.md)
 - [TypeScript patterns](docs/TYPESCRIPT.md)
 - [CI/CD pipeline](docs/CI_CD.md)
+- [AWS deployment (Terraform + EKS)](docs/AWS_DEPLOYMENT.md)
+- [Document upload Lambda + S3](docs/LAMBDA_DOCUMENTS.md)
+- [AWS full guide — Terraform + CI/CD step-by-step](docs/AWS_FULL_DEPLOYMENT_GUIDE.md)
 
 ## Scripts
 
