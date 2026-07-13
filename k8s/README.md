@@ -8,6 +8,8 @@ Deploy with **Kustomize**:
 | `overlays/production` | GHCR images, TLS Ingress, higher replicas |
 | `overlays/blue-green` | Optional blue/green app slots (local) |
 | `overlays/blue-green-production` | Optional blue/green for CD / GHCR |
+| `overlays/blue-green-aws` | Optional blue/green for AWS EKS (ECR + RDS/ElastiCache) |
+| `overlays/aws-production` | Rolling deploy on AWS EKS |
 
 **Guides:**
 

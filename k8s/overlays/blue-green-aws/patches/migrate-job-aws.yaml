@@ -1,0 +1,9 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  namespace: enterprise-app
+spec:
+  template:
+    spec:
+      initContainers: []

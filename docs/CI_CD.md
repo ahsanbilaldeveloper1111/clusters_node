@@ -38,8 +38,9 @@ Runs on **push to `main`/`master`** and on **version tags** (`v1.0.0`, `v1.2.3`)
 | **ecr** | Mirror `backend` + `frontend-k8s` from GHCR to **Amazon ECR** (when enabled) |
 | **lambda-documents** | Build/push **document-upload Lambda** Docker image to ECR + `aws lambda update-function-code` |
 | **kubernetes** | Prepare production overlay, upload manifests, optional generic K8s deploy |
-| **blue-green** | Optional blue/green deploy (standby image + Service selector switch) |
-| **aws-kubernetes** | Prepare `aws-production` overlay, deploy to **AWS EKS** (RDS + ElastiCache) |
+| **blue-green** | Optional blue/green deploy (GHCR / generic K8s) |
+| **blue-green-aws** | Optional blue/green on **AWS EKS** (ECR + RDS/ElastiCache) |
+| **aws-kubernetes** | Prepare `aws-production` overlay, deploy to **AWS EKS** (rolling) |
 | **gitops** | Commit GHCR tags to `gitops/` or ECR tags to `gitops-aws/` for Argo CD |
 
 ### Image names (GHCR)
@@ -72,6 +73,7 @@ GitHub → **Actions** → **CD** → **Run workflow**:
 |-------|---------|
 | **deploy_kubernetes** | Deploy to generic K8s using `k8s/overlays/production` |
 | **deploy_blue_green** | Blue/green deploy using `k8s/overlays/blue-green-production` |
+| **deploy_blue_green_aws** | Blue/green on AWS EKS using `k8s/overlays/blue-green-aws` |
 | **blue_green_switch** | When blue/green is on, flip traffic after standby is ready (default true) |
 | **deploy_aws_eks** | Deploy to AWS EKS using `k8s/overlays/aws-production` |
 | **gitops_commit** | Commit GHCR tags to `k8s/overlays/gitops` |
@@ -114,6 +116,24 @@ Replaces rolling `backend`/`frontend` Deployments with color slots. Full guide: 
 CD flow: **publish** → prepare `blue-green-production` → deploy to **inactive** color → optional **switch**.
 
 Do **not** set both `DEPLOY_K8S=true` and `DEPLOY_BLUE_GREEN=true` for the same cluster.
+
+### AWS EKS blue/green
+
+| Secret / variable | Purpose |
+|-------------------|---------|
+| AWS credentials / `AWS_EKS_CLUSTER_NAME` | Same as rolling AWS deploy |
+| `K8S_AWS_SECRETS_ENV` or Secrets Manager | App secrets |
+| `DEPLOY_BLUE_GREEN_AWS` | `true` — blue/green on EKS each `main` push |
+
+**Or** run CD with **deploy_blue_green_aws** checked.
+
+```bash
+# From your machine (after terraform + ECR push)
+export IMAGE_TAG=<sha>
+npm run k8s:aws:blue-green
+```
+
+Do **not** set both `DEPLOY_AWS_EKS=true` and `DEPLOY_BLUE_GREEN_AWS=true`.
 
 ## AWS EKS deployment
 

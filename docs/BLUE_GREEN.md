@@ -47,9 +47,11 @@ Postgres/Redis stay **shared** (not duplicated). Blue/green here is for the **st
 | `k8s/components/blue-green/` | Shared blue/green Deployments + active-color ConfigMap |
 | `k8s/overlays/blue-green/` | Local overlay (on top of `local`) |
 | `k8s/overlays/blue-green-production/` | Production/GHCR overlay (on top of `production`) |
+| `k8s/overlays/blue-green-aws/` | AWS EKS overlay (on top of `aws-production`, ECR) |
 | `patches/service-color-selector.yaml` | Services select `app.kubernetes.io/color` |
 | `scripts/k8s-blue-green-*.sh` | Local bootstrap / deploy / switch / status |
 | `scripts/k8s-cd-blue-green-*.sh` | CI/CD prepare + cluster deploy |
+| `scripts/k8s-aws-blue-green-deploy.sh` | One-shot AWS EKS blue/green |
 
 Pods keep `app.kubernetes.io/name: backend|frontend` so NetworkPolicies and PDBs still match. Extra label: `app.kubernetes.io/color: blue|green`.
 
@@ -142,41 +144,66 @@ Nginx in the frontend still proxies to `backend-service:3000`. After the switch,
 |---------|----------------|
 | `local` / `production` / `aws-production` | Rolling update (default) |
 | `blue-green` | Blue/green for local clusters |
-| `blue-green-production` | Blue/green for GHCR / CD |
+| `blue-green-production` | Blue/green for GHCR / generic CD |
+| `blue-green-aws` | Blue/green for **AWS EKS** (ECR + RDS/ElastiCache) |
 
-Do **not** run rolling `npm run k8s:deploy` / `DEPLOY_K8S` and blue/green on the same cluster without cleaning up — they fight over backend/frontend Deployment names.
+Do **not** run rolling and blue/green on the same cluster without cleaning up — they fight over backend/frontend Deployment names.
+
+| Do not combine | With |
+|----------------|------|
+| `DEPLOY_K8S` | `DEPLOY_BLUE_GREEN` |
+| `DEPLOY_AWS_EKS` | `DEPLOY_BLUE_GREEN_AWS` |
 
 To leave blue/green and return to rolling:
 
 ```bash
 kubectl delete -k k8s/overlays/blue-green --ignore-not-found
 # or: kubectl delete -k k8s/overlays/blue-green-production --ignore-not-found
-npm run k8s:deploy
+# or: kubectl delete -k k8s/overlays/blue-green-aws --ignore-not-found
+npm run k8s:deploy          # local
+# npm run k8s:aws:deploy    # AWS rolling
 ```
 
 ---
 
-## CI/CD
+## AWS EKS blue/green
 
-**CI** (`ci.yml`) validates both `blue-green` and `blue-green-production` with `kubectl kustomize`.
+Uses `k8s/overlays/blue-green-aws` (on top of `aws-production`):
 
-**CD** (`cd.yml`) job **blue-green** (optional):
+- ECR images  
+- No in-cluster Postgres/Redis (RDS + ElastiCache)  
+- Backend color Deployments drop wait-init containers and get `REDIS_URL`
 
-1. Publish images to GHCR  
-2. `scripts/k8s-cd-blue-green-prepare.sh` — set image tags  
-3. Upload artifact `k8s-blue-green-production-manifests`  
-4. `scripts/k8s-cd-blue-green-deploy.sh` — bootstrap if needed → standby deploy → switch  
+### Local / one-shot on EKS
+
+```bash
+aws eks update-kubeconfig --region us-east-1 --name enterprise-app-production
+export IMAGE_TAG=<ecr-tag-or-sha>
+npm run k8s:aws:blue-green
+```
+
+### CD
 
 | Variable / input | Purpose |
 |------------------|---------|
-| `DEPLOY_BLUE_GREEN=true` | Auto-run on `main` |
-| **deploy_blue_green** | Manual CD checkbox |
-| **blue_green_switch** | Flip traffic after standby (default on) |
-| `BLUE_GREEN_SWITCH=false` | Standby only (no cutover) |
-| `BLUE_GREEN_SCALE_DOWN_OLD=false` | Keep previous color up |
-| `BOOTSTRAP_BLUE_GREEN=false` | Require slots already installed |
+| `DEPLOY_BLUE_GREEN_AWS=true` | Auto blue/green on EKS each `main` push |
+| **deploy_blue_green_aws** | Manual CD checkbox |
+| `PUSH_ECR` / ECR job | Images mirrored before deploy (auto when AWS BG enabled) |
 
-Requires the same `KUBE_CONFIG` + `K8S_SECRETS_ENV` as rolling deploy. Details: [CI_CD.md](CI_CD.md).
+Same switch flags as generic blue/green (`BLUE_GREEN_SWITCH`, etc.).
+
+---
+
+## CI/CD (generic + AWS)
+
+**CI** validates `blue-green`, `blue-green-production`, and `blue-green-aws`.
+
+**CD** jobs:
+
+| Job | Overlay | Registry |
+|-----|---------|----------|
+| **blue-green** | `blue-green-production` | GHCR |
+| **blue-green-aws** | `blue-green-aws` | ECR |
 
 ---
 
@@ -184,5 +211,4 @@ Requires the same `KUBE_CONFIG` + `K8S_SECRETS_ENV` as rolling deploy. Details: 
 
 - **Shared DB/Redis** — schema migrations must stay backward-compatible across the cutover window.
 - **No HPA** on color Deployments in this overlay (fixed replicas; keeps the demo simple).
-- **AWS EKS** — use the same color-label pattern on `aws-production`, or run blue/green against a generic cluster with GHCR; dedicated `blue-green-aws` overlay is not included yet.
-- **Not Argo Rollouts** — plain Deployments + Service selector; easy to learn, no CRDs.
+- **Not Argo Rollouts** — plain Deployments + Service selector; easy to learn, no CRDs. Argo GitOps on AWS still uses rolling `gitops-aws` unless you point an Application at `blue-green-aws`.

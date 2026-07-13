@@ -1,0 +1,145 @@
+# Blue/green for AWS EKS (ECR images, RDS + ElastiCache — no in-cluster Postgres/Redis).
+# Patches are local copies of aws-production patches (kustomize load restrictions).
+# CD: scripts/k8s-cd-blue-green-aws-prepare.sh
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: enterprise-app
+
+resources:
+  - ../../base
+  - ../../components/blue-green
+
+secretGenerator:
+  - name: app-secrets
+    envs:
+      - secrets.env
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  # Drop in-cluster datastores (RDS + ElastiCache instead)
+  - target:
+      kind: PersistentVolumeClaim
+      name: postgres-data
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: postgres-data
+  - target:
+      kind: Deployment
+      name: postgres
+    patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: postgres
+  - target:
+      kind: Service
+      name: postgres-service
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: postgres-service
+  - target:
+      kind: Deployment
+      name: redis
+    patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: redis
+  - target:
+      kind: Service
+      name: redis-service
+    patch: |-
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: redis-service
+  - target:
+      kind: NetworkPolicy
+      name: postgres-network-policy
+    patch: |-
+      $patch: delete
+      apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: postgres-network-policy
+  - path: patches/backend-resources.yaml
+  - path: patches/migrate-job-aws.yaml
+  - target:
+      kind: Job
+      name: db-migrate
+    patch: |-
+      - op: remove
+        path: /spec/template/spec/initContainers
+  - target:
+      kind: Job
+      name: db-seed
+    patch: |-
+      - op: remove
+        path: /spec/template/spec/initContainers
+  - target:
+      kind: ConfigMap
+      name: app-config
+    path: patches/configmap-aws.yaml
+  - path: patches/networkpolicy-aws.yaml
+  - path: patches/ingress-production.yaml
+  - path: patches/service-color-selector.yaml
+  - path: patches/backend-color-aws.yaml
+  - target:
+      kind: Deployment
+      name: backend-blue
+    patch: |-
+      - op: remove
+        path: /spec/template/spec/initContainers
+  - target:
+      kind: Deployment
+      name: backend-green
+    patch: |-
+      - op: remove
+        path: /spec/template/spec/initContainers
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: backend
+  - target:
+      kind: Deployment
+      name: frontend
+    patch: |-
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: frontend
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: backend-hpa
+    patch: |-
+      $patch: delete
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: backend-hpa
+
+# CD: scripts/k8s-cd-blue-green-aws-prepare.sh runs kustomize edit set image
+images:
+  - name: enterprise-backend
+    newName: enterprise-backend
+    newTag: latest
+  - name: enterprise-frontend
+    newName: enterprise-frontend
+    newTag: latest

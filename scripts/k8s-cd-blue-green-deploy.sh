@@ -8,6 +8,7 @@
 #   SCALE_DOWN_OLD=true           — scale previous color to 0 after switch
 #   REPLICAS=2
 #   OVERLAY=k8s/overlays/blue-green-production
+#   SKIP_POSTGRES_WAIT=true       — AWS (no in-cluster postgres Deployment)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,6 +23,7 @@ BLUE_GREEN_SWITCH="${BLUE_GREEN_SWITCH:-true}"
 SCALE_DOWN_OLD="${SCALE_DOWN_OLD:-true}"
 REPLICAS="${REPLICAS:-2}"
 OVERLAY="${OVERLAY:-k8s/overlays/blue-green-production}"
+SKIP_POSTGRES_WAIT="${SKIP_POSTGRES_WAIT:-false}"
 
 require_cluster
 
@@ -34,7 +36,9 @@ if ! kubectl get deployment backend-blue -n "$NS" &>/dev/null; then
   kubectl apply -k "$OVERLAY"
   kubectl delete job db-migrate db-seed -n "$NS" --ignore-not-found || true
   kubectl apply -k "$OVERLAY" 2>/dev/null || true
-  kubectl wait --for=condition=available deployment/postgres -n "$NS" --timeout=300s || true
+  if [[ "$SKIP_POSTGRES_WAIT" != "true" ]]; then
+    kubectl wait --for=condition=available deployment/postgres -n "$NS" --timeout=300s || true
+  fi
   kubectl wait --for=condition=complete job/db-migrate -n "$NS" --timeout=180s || true
   kubectl wait --for=condition=complete job/db-seed -n "$NS" --timeout=180s || true
   ACTIVE="$(active_color)"

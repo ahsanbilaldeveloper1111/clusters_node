@@ -223,6 +223,17 @@ bash scripts/argocd-bootstrap-aws.sh
 
 Set `USE_ARGOCD_GITOPS_AWS=true` + `PUSH_ECR=true` — CD commits ECR tags to Git, Argo CD syncs EKS.
 
+### Blue/green on AWS EKS (optional)
+
+Instead of rolling `DEPLOY_AWS_EKS`:
+
+```bash
+export IMAGE_TAG=<ecr-sha>
+npm run k8s:aws:blue-green
+```
+
+Or set `DEPLOY_BLUE_GREEN_AWS=true` in GitHub Actions (see [BLUE_GREEN.md](BLUE_GREEN.md)).
+
 See [ARGOCD.md](ARGOCD.md).
 
 See [ARGOCD.md](ARGOCD.md) and [CI_CD.md](CI_CD.md).

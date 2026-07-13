@@ -63,13 +63,17 @@ jobs:
           cp k8s/overlays/aws-production/secrets.env.example k8s/overlays/aws-production/secrets.env
           AWS_ACCOUNT_ID=123456789012 IMAGE_TAG=ci-test bash scripts/k8s-aws-prepare.sh
           kubectl kustomize k8s/overlays/aws-production > /tmp/k8s-aws-prod.yaml
+          cp k8s/overlays/blue-green-aws/secrets.env.example k8s/overlays/blue-green-aws/secrets.env
+          AWS_ACCOUNT_ID=123456789012 IMAGE_TAG=ci-test bash scripts/k8s-cd-blue-green-aws-prepare.sh
+          kubectl kustomize k8s/overlays/blue-green-aws > /tmp/k8s-blue-green-aws.yaml
           git checkout -- k8s/overlays/aws-production/kustomization.yaml 2>/dev/null || true
-          rm -f k8s/overlays/aws-production/secrets.env
+          git checkout -- k8s/overlays/blue-green-aws/kustomization.yaml 2>/dev/null || true
+          rm -f k8s/overlays/aws-production/secrets.env k8s/overlays/blue-green-aws/secrets.env
           kubectl kustomize k8s/overlays/gitops > /tmp/k8s-gitops.yaml
           AWS_ACCOUNT_ID=123456789012 IMAGE_TAG=ci-test bash scripts/argocd-update-gitops-aws-images.sh
           kubectl kustomize k8s/overlays/gitops-aws > /tmp/k8s-gitops-aws.yaml
           git checkout -- k8s/overlays/gitops-aws/kustomization.yaml 2>/dev/null || true
-          echo "Kustomize OK (local: $(wc -l < /tmp/k8s-local.yaml), blue-green: $(wc -l < /tmp/k8s-blue-green.yaml), prod: $(wc -l < /tmp/k8s-prod.yaml), blue-green-prod: $(wc -l < /tmp/k8s-blue-green-prod.yaml), aws: $(wc -l < /tmp/k8s-aws-prod.yaml), gitops: $(wc -l < /tmp/k8s-gitops.yaml), gitops-aws: $(wc -l < /tmp/k8s-gitops-aws.yaml) lines)"
+          echo "Kustomize OK (local: $(wc -l < /tmp/k8s-local.yaml), blue-green: $(wc -l < /tmp/k8s-blue-green.yaml), prod: $(wc -l < /tmp/k8s-prod.yaml), blue-green-prod: $(wc -l < /tmp/k8s-blue-green-prod.yaml), aws: $(wc -l < /tmp/k8s-aws-prod.yaml), blue-green-aws: $(wc -l < /tmp/k8s-blue-green-aws.yaml), gitops: $(wc -l < /tmp/k8s-gitops.yaml), gitops-aws: $(wc -l < /tmp/k8s-gitops-aws.yaml) lines)"
 
       - name: Upload backend dist
         uses: actions/upload-artifact@v4
