@@ -170,22 +170,32 @@ flowchart LR
 
 ### AWS GitOps quick start
 
-**Prerequisites:** `terraform apply` completed ([AWS_DEPLOYMENT.md](AWS_DEPLOYMENT.md)).
+**Prerequisites:** `terraform apply` completed ([AWS_DEPLOYMENT.md](AWS_DEPLOYMENT.md)), `aws` CLI + `kubectl` installed.
 
 ```bash
-# 1. Install Argo CD on EKS
+# One-shot: kubeconfig + Argo CD install + AWS Application bootstrap
+npm run argocd:aws:apply
+
+# Or with explicit cluster:
+# AWS_REGION=us-east-1 AWS_EKS_CLUSTER_NAME=enterprise-app-production npm run argocd:aws:apply
+```
+
+Equivalent steps:
+
+```bash
 aws eks update-kubeconfig --region us-east-1 --name enterprise-app-production
 EXPOSE_ARGOCD_UI=false bash scripts/argocd-install.sh
-
-# 2. Bootstrap secrets + Application
 bash scripts/argocd-bootstrap-aws.sh
-
-# 3. Enable CD GitOps (GitHub repo variables)
-#    USE_ARGOCD_GITOPS_AWS=true
-#    PUSH_ECR=true   (mirror images to ECR before Argo syncs)
-
-# 4. Push to main — CD commits ECR tags to gitops-aws → Argo auto-syncs
 ```
+
+Then enable CD GitOps (GitHub repo variables):
+
+```text
+USE_ARGOCD_GITOPS_AWS=true
+PUSH_ECR=true
+```
+
+Do **not** also set `DEPLOY_AWS_EKS=true`.
 
 ### Enable AWS GitOps in CD
 

@@ -1,0 +1,20 @@
+# Live traffic only hits pods with the active color label.
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: enterprise-app
+spec:
+  selector:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/color: blue
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: enterprise-app
+spec:
+  selector:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/color: blue

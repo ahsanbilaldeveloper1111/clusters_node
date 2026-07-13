@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blue-green-active
+  namespace: enterprise-app
+  labels:
+    app.kubernetes.io/part-of: enterprise-advanced-app
+    app.kubernetes.io/component: blue-green
+data:
+  # Which color currently receives traffic (updated by scripts/k8s-blue-green-switch.sh)
+  active: blue

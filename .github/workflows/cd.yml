@@ -32,6 +32,16 @@ on:
         required: false
         default: false
         type: boolean
+      deploy_blue_green:
+        description: Blue/green deploy (standby slot + traffic switch) via KUBE_CONFIG
+        required: false
+        default: false
+        type: boolean
+      blue_green_switch:
+        description: When blue/green deploy is on, flip traffic after standby is ready
+        required: false
+        default: true
+        type: boolean
 
 concurrency:
   group: cd-${{ github.workflow }}-${{ github.ref }}
@@ -346,6 +356,120 @@ jobs:
             echo ""
             echo "Set \`USE_ARGOCD_GITOPS=true\` or run with **gitops_commit** — updates \`k8s/overlays/gitops\` and Argo CD syncs."
             echo "See [docs/ARGOCD.md](docs/ARGOCD.md)"
+            echo ""
+            echo "## Blue/green (optional)"
+            echo ""
+            echo "Set \` x=true\` or run with **deploy_blue_green** checked."
+            echo "See [docs/BLUE_GREEN.md](docs/BLUE_GREEN.md)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  blue-green:
+    name: Blue/green Kubernetes deploy
+    runs-on: ubuntu-latest
+    needs: publish
+    if: >-
+      github.event_name != 'pull_request' &&
+      needs.publish.result == 'success' &&
+      (
+        vars.DEPLOY_BLUE_GREEN == 'true' ||
+        (github.event_name == 'workflow_dispatch' && inputs.deploy_blue_green == true)
+      )
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          kustomize-version: "5.4.3"
+
+      - name: Write production secrets
+        working-directory: k8s/overlays/production
+        run: |
+          if [[ -n "${{ secrets.K8S_SECRETS_ENV }}" ]]; then
+            printf '%s' "${{ secrets.K8S_SECRETS_ENV }}" > secrets.env
+          else
+            cp secrets.env.example secrets.env
+            echo "::warning::Using secrets.env.example — set repository secret K8S_SECRETS_ENV for production"
+          fi
+
+      - name: Set GHCR image tags (blue-green-production)
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: bash scripts/k8s-cd-blue-green-prepare.sh
+
+      - name: Validate blue-green manifests
+        run: |
+          kubectl kustomize k8s/overlays/blue-green-production > /tmp/k8s-blue-green-production.yaml
+          echo "Rendered $(wc -l < /tmp/k8s-blue-green-production.yaml) lines"
+
+      - name: Upload blue-green manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-blue-green-production-manifests
+          path: /tmp/k8s-blue-green-production.yaml
+          retention-days: 30
+
+      - name: Configure kubeconfig
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          if [[ -z "$KUBE_CONFIG" ]]; then
+            echo "::error::KUBE_CONFIG secret is required for blue/green deploy."
+            exit 1
+          fi
+          mkdir -p ~/.kube
+          echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl cluster-info
+
+      - name: Blue/green deploy (standby + optional switch)
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          SCALE_DOWN_OLD: ${{ vars.BLUE_GREEN_SCALE_DOWN_OLD == 'false' && 'false' || 'true' }}
+          BOOTSTRAP_BLUE_GREEN: ${{ vars.BOOTSTRAP_BLUE_GREEN == 'false' && 'false' || 'true' }}
+          OVERLAY: k8s/overlays/blue-green-production
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SWITCH: ${{ github.event_name == 'workflow_dispatch' && inputs.blue_green_switch || 'true' }}
+          VAR_SWITCH: ${{ vars.BLUE_GREEN_SWITCH }}
+        run: |
+          export BACKEND_IMAGE="${REGISTRY}/${REPO}/backend:${SHA}"
+          export FRONTEND_IMAGE="${REGISTRY}/${REPO}/frontend-k8s:${SHA}"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$INPUT_SWITCH" == "false" ]]; then
+            export BLUE_GREEN_SWITCH=false
+          elif [[ "$VAR_SWITCH" == "false" ]]; then
+            export BLUE_GREEN_SWITCH=false
+          else
+            export BLUE_GREEN_SWITCH=true
+          fi
+          echo "BLUE_GREEN_SWITCH=${BLUE_GREEN_SWITCH}"
+          bash scripts/k8s-cd-blue-green-deploy.sh
+
+      - name: Blue/green summary
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          {
+            echo "## Blue/green — Deployed"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Backend | \`${REGISTRY}/${REPO}/backend:${SHA}\` |"
+            echo "| Frontend | \`${REGISTRY}/${REPO}/frontend-k8s:${SHA}\` |"
+            echo "| Overlay | \`k8s/overlays/blue-green-production\` |"
+            echo ""
+            echo "Artifact: **k8s-blue-green-production-manifests**"
+            echo ""
+            echo "Do **not** enable both \`DEPLOY_K8S\` and \`DEPLOY_BLUE_GREEN\` on the same cluster."
+            echo "See [docs/BLUE_GREEN.md](docs/BLUE_GREEN.md)"
           } >> "$GITHUB_STEP_SUMMARY"
 
   aws-kubernetes:

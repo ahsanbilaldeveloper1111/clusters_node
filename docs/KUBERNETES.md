@@ -7,6 +7,7 @@ This project includes a **production-oriented Kubernetes layout** using [Kustomi
 1. [Architecture on Kubernetes](#architecture-on-kubernetes)
 2. [Directory layout](#directory-layout)
 2b. **[Detailed deploy flow & file-by-file behaviour](KUBERNETES_DEPLOYMENT_FLOW.md)** ← start here for “how each file works”
+2c. **[Blue/green deployment](BLUE_GREEN.md)** — optional color slots + Service cutover
 3. [Advanced concepts used](#advanced-concepts-used)
 4. [Prerequisites](#prerequisites)
 5. [Quick start (local cluster)](#quick-start-local-cluster)
@@ -288,6 +289,16 @@ Change image tag in overlay `images:` section, then:
 ```bash
 kubectl apply -k k8s/overlays/local
 kubectl rollout status deployment/backend -n enterprise-app
+```
+
+### Blue/green (optional)
+
+For zero-downtime cutover with two color slots (blue/green) and a Service selector flip, see **[BLUE_GREEN.md](BLUE_GREEN.md)**.
+
+```bash
+npm run k8s:blue-green:bootstrap
+npm run k8s:blue-green:deploy -- local-v3 local-v3
+npm run k8s:blue-green:switch
 ```
 
 ### Connect CD pipeline to Kubernetes

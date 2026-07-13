@@ -84,6 +84,7 @@ If you see `auth.docker.io` or DNS `i/o timeout`, see **[docs/TROUBLESHOOTING.md
 
 ## Documentation
 
+- [Line-by-line project guide (features, flows, code)](docs/PROJECT_LINE_BY_LINE_GUIDE.md)
 - [Architecture overview](docs/ARCHITECTURE.md)
 - [Cluster & Worker Threads](docs/CLUSTER_AND_WORKERS.md)
 - [PostgreSQL & queries](docs/DATABASE.md)

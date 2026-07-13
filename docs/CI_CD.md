@@ -11,7 +11,7 @@ Runs on every **push** and **pull request** to `main`, `master`, or `develop`.
 | Job | What it does |
 |-----|----------------|
 | **build** | `npm install`, compile backend + frontend TypeScript |
-| **build** (k8s) | `kubectl kustomize` local, production, **aws-production**, and gitops overlays |
+| **build** (k8s) | `kubectl kustomize` local, **blue-green**, production, **blue-green-production**, **aws-production**, and gitops overlays |
 | **database** | Starts Postgres 16, runs migrations + seed |
 | **docker** | Builds backend, frontend, frontend-k8s, **Lambda document-upload** images (no push), validates `docker compose config` |
 | **terraform** | `terraform fmt -check`, `init`, `validate` for AWS infrastructure |
@@ -38,6 +38,7 @@ Runs on **push to `main`/`master`** and on **version tags** (`v1.0.0`, `v1.2.3`)
 | **ecr** | Mirror `backend` + `frontend-k8s` from GHCR to **Amazon ECR** (when enabled) |
 | **lambda-documents** | Build/push **document-upload Lambda** Docker image to ECR + `aws lambda update-function-code` |
 | **kubernetes** | Prepare production overlay, upload manifests, optional generic K8s deploy |
+| **blue-green** | Optional blue/green deploy (standby image + Service selector switch) |
 | **aws-kubernetes** | Prepare `aws-production` overlay, deploy to **AWS EKS** (RDS + ElastiCache) |
 | **gitops** | Commit GHCR tags to `gitops/` or ECR tags to `gitops-aws/` for Argo CD |
 
@@ -70,6 +71,8 @@ GitHub → **Actions** → **CD** → **Run workflow**:
 | Input | Purpose |
 |-------|---------|
 | **deploy_kubernetes** | Deploy to generic K8s using `k8s/overlays/production` |
+| **deploy_blue_green** | Blue/green deploy using `k8s/overlays/blue-green-production` |
+| **blue_green_switch** | When blue/green is on, flip traffic after standby is ready (default true) |
 | **deploy_aws_eks** | Deploy to AWS EKS using `k8s/overlays/aws-production` |
 | **gitops_commit** | Commit GHCR tags to `k8s/overlays/gitops` |
 | **gitops_commit_aws** | Commit ECR tags to `k8s/overlays/gitops-aws` (Argo CD on AWS) |
@@ -92,6 +95,25 @@ Every CD run on `main` / tags:
 | `DEPLOY_K8S` | Repository variable set to `true` |
 
 **Or** run CD manually with **deploy_kubernetes** checked.
+
+## Blue/green deployment (optional)
+
+Replaces rolling `backend`/`frontend` Deployments with color slots. Full guide: [BLUE_GREEN.md](BLUE_GREEN.md).
+
+| Secret / variable | Purpose |
+|-------------------|---------|
+| `KUBE_CONFIG` | Same as rolling deploy |
+| `K8S_SECRETS_ENV` | Same as rolling deploy |
+| `DEPLOY_BLUE_GREEN` | `true` — blue/green on every `main` push |
+| `BLUE_GREEN_SWITCH` | `false` — deploy standby only (no traffic flip) |
+| `BLUE_GREEN_SCALE_DOWN_OLD` | `false` — keep previous color scaled up after switch |
+| `BOOTSTRAP_BLUE_GREEN` | `false` — fail if color slots are missing (default bootstraps) |
+
+**Or** run CD with **deploy_blue_green** checked.
+
+CD flow: **publish** → prepare `blue-green-production` → deploy to **inactive** color → optional **switch**.
+
+Do **not** set both `DEPLOY_K8S=true` and `DEPLOY_BLUE_GREEN=true` for the same cluster.
 
 ## AWS EKS deployment
 
@@ -217,11 +239,13 @@ On `main`:
 
 | File | Purpose |
 |------|---------|
-| `.github/workflows/ci.yml` | Build, k8s manifest validation, terraform validate |
-| `.github/workflows/cd.yml` | GHCR publish, ECR mirror, K8s + AWS EKS deploy |
+| `.github/workflows/ci.yml` | Build, k8s manifest validation (incl. blue-green), terraform validate |
+| `.github/workflows/cd.yml` | GHCR publish, ECR mirror, K8s / blue-green / AWS EKS deploy |
 | `docker-compose.prod.yml` | Pin GHCR images in production |
 | `terraform/` | AWS infrastructure |
 | `k8s/overlays/aws-production/` | kubectl AWS deploy overlay |
+| `k8s/overlays/blue-green/` | Local blue/green overlay |
+| `k8s/overlays/blue-green-production/` | Production blue/green overlay (GHCR) |
 | `k8s/overlays/gitops-aws/` | Argo CD AWS GitOps overlay (ECR) |
 
 ## Other CI platforms

@@ -210,11 +210,20 @@ Or run **Actions → CD → Run workflow** with **deploy_aws_eks** or **gitops_c
 ### Argo CD GitOps (recommended for AWS production)
 
 ```bash
+npm run argocd:aws:apply
+# Sets kubeconfig, installs Argo CD, bootstraps enterprise-app-aws + secrets
+```
+
+Or step-by-step:
+
+```bash
 EXPOSE_ARGOCD_UI=false bash scripts/argocd-install.sh
 bash scripts/argocd-bootstrap-aws.sh
 ```
 
 Set `USE_ARGOCD_GITOPS_AWS=true` + `PUSH_ECR=true` — CD commits ECR tags to Git, Argo CD syncs EKS.
+
+See [ARGOCD.md](ARGOCD.md).
 
 See [ARGOCD.md](ARGOCD.md) and [CI_CD.md](CI_CD.md).
 
