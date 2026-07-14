@@ -27,6 +27,11 @@ on:
         required: false
         default: false
         type: boolean
+      gitops_blue_green_aws:
+        description: Argo CD blue/green on AWS (standby commit + switch commit)
+        required: false
+        default: false
+        type: boolean
       deploy_lambda_documents:
         description: Build/push document-upload Lambda Docker image and update function
         required: false
@@ -128,10 +133,12 @@ jobs:
         vars.PUSH_ECR == 'true' ||
         vars.DEPLOY_AWS_EKS == 'true' ||
         vars.DEPLOY_BLUE_GREEN_AWS == 'true' ||
+        vars.USE_ARGOCD_BLUE_GREEN_AWS == 'true' ||
         vars.DEPLOY_LAMBDA_DOCUMENTS == 'true' ||
         vars.USE_ARGOCD_GITOPS_AWS == 'true' ||
         (github.event_name == 'workflow_dispatch' && inputs.deploy_aws_eks == true) ||
         (github.event_name == 'workflow_dispatch' && inputs.deploy_blue_green_aws == true) ||
+        (github.event_name == 'workflow_dispatch' && inputs.gitops_blue_green_aws == true) ||
         (github.event_name == 'workflow_dispatch' && inputs.gitops_commit_aws == true) ||
         (github.event_name == 'workflow_dispatch' && inputs.deploy_lambda_documents == true)
       )
@@ -735,6 +742,12 @@ jobs:
         with:
           kustomize-version: "5.4.3"
 
+      - name: Setup kubectl
+        if: >-
+          vars.USE_ARGOCD_BLUE_GREEN_AWS == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.gitops_blue_green_aws == true)
+        uses: azure/setup-kubectl@v4
+
       - name: Update gitops image tags (GHCR)
         if: >-
           vars.USE_ARGOCD_GITOPS == 'true' ||
@@ -766,6 +779,117 @@ jobs:
           ENVIRONMENT: ${{ env.ENVIRONMENT }}
           AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
         run: bash scripts/argocd-update-gitops-aws-images.sh
+
+      - name: Configure AWS credentials (gitops blue/green)
+        if: >-
+          vars.USE_ARGOCD_BLUE_GREEN_AWS == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.gitops_blue_green_aws == true)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Argo blue/green — update standby in Git
+        if: >-
+          vars.USE_ARGOCD_BLUE_GREEN_AWS == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.gitops_blue_green_aws == true)
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          ENVIRONMENT: ${{ env.ENVIRONMENT }}
+          AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+        run: bash scripts/argocd-gitops-blue-green-aws-standby.sh
+
+      - name: Commit standby (Argo syncs new color)
+        if: >-
+          vars.USE_ARGOCD_BLUE_GREEN_AWS == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.gitops_blue_green_aws == true)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/overlays/gitops-blue-green-aws/
+          if git diff --staged --quiet; then
+            echo "No standby gitops-bg changes"
+          else
+            git commit -m "chore(gitops-bg): standby images ${{ github.sha }}"
+            git push
+          fi
+
+      - name: Wait for Argo standby Ready
+        if: >-
+          vars.USE_ARGOCD_BLUE_GREEN_AWS == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.gitops_blue_green_aws == true)
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+        run: |
+          aws eks update-kubeconfig --region "$AWS_REGION" --name "${{ env.AWS_EKS_CLUSTER_NAME }}"
+          # shellcheck source=scripts/argocd-gitops-blue-green-lib.sh
+          source scripts/argocd-gitops-blue-green-lib.sh
+          ACTIVE="$(gitops_bg_active_color)"
+          STANDBY="$(gitops_bg_other_color "$ACTIVE")"
+          echo "Waiting for Application sync + standby $STANDBY..."
+          for i in $(seq 1 60); do
+            SYNC="$(kubectl get application enterprise-app-aws-bg -n argocd -o jsonpath='{.status.sync.status}' 2>/dev/null || echo Unknown)"
+            HEALTH="$(kubectl get application enterprise-app-aws-bg -n argocd -o jsonpath='{.status.health.status}' 2>/dev/null || echo Unknown)"
+            BE="$(kubectl get deploy "backend-${STANDBY}" -n enterprise-app -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo 0)"
+            FE="$(kubectl get deploy "frontend-${STANDBY}" -n enterprise-app -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo 0)"
+            BE="${BE:-0}"; FE="${FE:-0}"
+            echo "[$i] sync=$SYNC health=$HEALTH backend-${STANDBY} ready=$BE frontend ready=$FE"
+            if [[ "$BE" -ge 1 && "$FE" -ge 1 ]]; then
+              echo "Standby ready"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Timed out waiting for standby $STANDBY"
+          exit 1
+
+      - name: Argo blue/green — switch color in Git
+        if: >-
+          vars.USE_ARGOCD_BLUE_GREEN_AWS == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.gitops_blue_green_aws == true)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SWITCH: ${{ github.event_name == 'workflow_dispatch' && inputs.blue_green_switch || 'true' }}
+          VAR_SWITCH: ${{ vars.BLUE_GREEN_SWITCH }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$INPUT_SWITCH" == "false" ]]; then
+            echo "blue_green_switch=false — skipping cutover commit"
+            exit 0
+          fi
+          if [[ "$VAR_SWITCH" == "false" ]]; then
+            echo "BLUE_GREEN_SWITCH=false — skipping cutover commit"
+            exit 0
+          fi
+          bash scripts/argocd-gitops-blue-green-aws-switch.sh
+
+      - name: Commit switch (Argo syncs traffic cutover)
+        if: >-
+          vars.USE_ARGOCD_BLUE_GREEN_AWS == 'true' ||
+          (github.event_name == 'workflow_dispatch' && inputs.gitops_blue_green_aws == true)
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_SWITCH: ${{ github.event_name == 'workflow_dispatch' && inputs.blue_green_switch || 'true' }}
+          VAR_SWITCH: ${{ vars.BLUE_GREEN_SWITCH }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$INPUT_SWITCH" == "false" ]]; then
+            exit 0
+          fi
+          if [[ "$VAR_SWITCH" == "false" ]]; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/overlays/gitops-blue-green-aws/
+          if git diff --staged --quiet; then
+            echo "No switch gitops-bg changes"
+          else
+            git commit -m "chore(gitops-bg): switch traffic ${{ github.sha }}"
+            git push
+          fi
 
       - name: Commit and push gitops overlays
         if: >-

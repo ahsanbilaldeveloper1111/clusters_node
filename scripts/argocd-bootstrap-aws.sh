@@ -40,12 +40,24 @@ kubectl create secret generic app-secrets \
 
 echo "Applying AppProject + AWS Application..."
 kubectl apply -f k8s/argocd/appproject.yaml
-kubectl apply -f k8s/argocd/applications/enterprise-app-aws.yaml
+
+if [[ "${ARGOCD_BLUE_GREEN:-false}" == "true" ]]; then
+  echo "Using blue/green GitOps Application (enterprise-app-aws-bg)"
+  kubectl delete -f k8s/argocd/applications/enterprise-app-aws.yaml --ignore-not-found
+  kubectl apply -f k8s/argocd/applications/enterprise-app-aws-bg.yaml
+  APP_NAME="enterprise-app-aws-bg"
+else
+  kubectl apply -f k8s/argocd/applications/enterprise-app-aws.yaml
+  APP_NAME="enterprise-app-aws"
+fi
 
 echo ""
 echo "Bootstrap complete (AWS GitOps)."
-echo "  Sync status: kubectl get application enterprise-app-aws -n ${ARGOCD_NAMESPACE}"
+echo "  Sync status: kubectl get application ${APP_NAME} -n ${ARGOCD_NAMESPACE}"
 echo "  Argo UI:     kubectl port-forward svc/argocd-server -n ${ARGOCD_NAMESPACE} 8082:443"
 echo ""
 echo "Ensure Argo CD repo access: ${GIT_REPO_URL}"
 echo "ECR pull: EKS nodes need IAM ECR policy (terraform attaches this)."
+if [[ "${ARGOCD_BLUE_GREEN:-false}" == "true" ]]; then
+  echo "Blue/green GitOps: set USE_ARGOCD_BLUE_GREEN_AWS=true + PUSH_ECR=true"
+fi

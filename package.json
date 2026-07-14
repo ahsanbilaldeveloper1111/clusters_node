@@ -34,6 +34,7 @@
     "argocd:bootstrap": "bash scripts/argocd-bootstrap.sh",
     "argocd:bootstrap:aws": "bash scripts/argocd-bootstrap-aws.sh",
     "argocd:aws:apply": "bash scripts/argocd-aws-apply.sh",
+    "argocd:aws:blue-green": "ARGOCD_BLUE_GREEN=true bash scripts/argocd-aws-apply.sh",
     "db:migrate": "npm run db:migrate -w backend",
     "db:seed": "npm run db:seed -w backend"
   },

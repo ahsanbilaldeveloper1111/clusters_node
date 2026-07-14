@@ -1,0 +1,4 @@
+# Remap to per-color image names so kustomize can update blue/green independently.
+- op: replace
+  path: /spec/template/spec/containers/0/image
+  value: enterprise-backend-blue:latest

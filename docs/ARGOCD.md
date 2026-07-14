@@ -197,6 +197,17 @@ PUSH_ECR=true
 
 Do **not** also set `DEPLOY_AWS_EKS=true`.
 
+### Argo CD blue/green (AWS)
+
+```bash
+ARGOCD_BLUE_GREEN=true npm run argocd:aws:apply
+```
+
+GitHub: `USE_ARGOCD_BLUE_GREEN_AWS=true` + `PUSH_ECR=true`  
+(Do not combine with `USE_ARGOCD_GITOPS_AWS` or `DEPLOY_BLUE_GREEN_AWS`.)
+
+CD commits standby images, waits for Ready, then commits the Service color switch. See [BLUE_GREEN.md](BLUE_GREEN.md).
+
 ### Enable AWS GitOps in CD
 
 | Setting | Value |

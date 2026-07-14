@@ -77,7 +77,8 @@ GitHub → **Actions** → **CD** → **Run workflow**:
 | **blue_green_switch** | When blue/green is on, flip traffic after standby is ready (default true) |
 | **deploy_aws_eks** | Deploy to AWS EKS using `k8s/overlays/aws-production` |
 | **gitops_commit** | Commit GHCR tags to `k8s/overlays/gitops` |
-| **gitops_commit_aws** | Commit ECR tags to `k8s/overlays/gitops-aws` (Argo CD on AWS) |
+| **gitops_commit_aws** | Commit ECR tags to `k8s/overlays/gitops-aws` (Argo CD rolling) |
+| **gitops_blue_green_aws** | Argo CD blue/green (standby + switch commits) |
 | **deploy_lambda_documents** | Build/push Lambda Docker image and update function |
 
 ## Kubernetes deployment — generic cluster

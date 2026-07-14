@@ -1,0 +1,161 @@
+# Argo CD GitOps blue/green for AWS EKS (ECR + RDS/ElastiCache).
+# Secrets bootstrapped outside Git (same as gitops-aws).
+# CD: argocd-gitops-blue-green-aws-standby.sh + argocd-gitops-blue-green-aws-switch.sh
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: enterprise-app
+
+resources:
+- ../../base
+- ../../components/blue-green
+
+patches:
+- patch: |-
+    $patch: delete
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: postgres-data
+  target:
+    kind: PersistentVolumeClaim
+    name: postgres-data
+- patch: |-
+    $patch: delete
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: postgres
+  target:
+    kind: Deployment
+    name: postgres
+- patch: |-
+    $patch: delete
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: postgres-service
+  target:
+    kind: Service
+    name: postgres-service
+- patch: |-
+    $patch: delete
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: redis
+  target:
+    kind: Deployment
+    name: redis
+- patch: |-
+    $patch: delete
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: redis-service
+  target:
+    kind: Service
+    name: redis-service
+- patch: |-
+    $patch: delete
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: postgres-network-policy
+  target:
+    kind: NetworkPolicy
+    name: postgres-network-policy
+- path: patches/backend-resources.yaml
+- path: patches/migrate-job-aws.yaml
+- patch: |-
+    - op: remove
+      path: /spec/template/spec/initContainers
+  target:
+    kind: Job
+    name: db-migrate
+- patch: |-
+    - op: remove
+      path: /spec/template/spec/initContainers
+  target:
+    kind: Job
+    name: db-seed
+- path: patches/configmap-aws.yaml
+  target:
+    kind: ConfigMap
+    name: app-config
+- path: patches/networkpolicy-aws.yaml
+- path: patches/ingress-production.yaml
+- path: patches/service-color-selector.yaml
+- path: patches/active-color.yaml
+- path: patches/replicas-colors.yaml
+- path: patches/backend-color-aws.yaml
+- patch: |-
+    - op: remove
+      path: /spec/template/spec/initContainers
+  target:
+    kind: Deployment
+    name: backend-blue
+- patch: |-
+    - op: remove
+      path: /spec/template/spec/initContainers
+  target:
+    kind: Deployment
+    name: backend-green
+- path: patches/image-backend-blue.yaml
+  target:
+    kind: Deployment
+    name: backend-blue
+- path: patches/image-backend-green.yaml
+  target:
+    kind: Deployment
+    name: backend-green
+- path: patches/image-frontend-blue.yaml
+  target:
+    kind: Deployment
+    name: frontend-blue
+- path: patches/image-frontend-green.yaml
+  target:
+    kind: Deployment
+    name: frontend-green
+- patch: |-
+    $patch: delete
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: backend
+  target:
+    kind: Deployment
+    name: backend
+- patch: |-
+    $patch: delete
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: frontend
+  target:
+    kind: Deployment
+    name: frontend
+- patch: |-
+    $patch: delete
+    apiVersion: autoscaling/v2
+    kind: HorizontalPodAutoscaler
+    metadata:
+      name: backend-hpa
+  target:
+    kind: HorizontalPodAutoscaler
+    name: backend-hpa
+
+# Per-color images — CD updates only the standby pair
+images:
+  - name: enterprise-backend-blue
+    newName: enterprise-backend-blue
+    newTag: latest
+  - name: enterprise-backend-green
+    newName: enterprise-backend-green
+    newTag: latest
+  - name: enterprise-frontend-blue
+    newName: enterprise-frontend-blue
+    newTag: latest
+  - name: enterprise-frontend-green
+    newName: enterprise-frontend-green
+    newTag: latest

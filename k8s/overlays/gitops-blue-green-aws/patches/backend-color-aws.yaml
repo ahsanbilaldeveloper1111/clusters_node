@@ -1,0 +1,58 @@
+# Clear in-cluster wait init containers; wire REDIS_URL (strategic merge cannot clear lists reliably).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-blue
+  namespace: enterprise-app
+spec:
+  template:
+    spec:
+      containers:
+        - name: backend
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_URL
+            - name: DEPLOYMENT_COLOR
+              value: blue
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-green
+  namespace: enterprise-app
+spec:
+  template:
+    spec:
+      containers:
+        - name: backend
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: JWT_SECRET
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REDIS_URL
+            - name: DEPLOYMENT_COLOR
+              value: green

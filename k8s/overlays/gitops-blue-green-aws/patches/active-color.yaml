@@ -1,0 +1,8 @@
+# Git-tracked active color (Argo CD source of truth for traffic).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blue-green-active
+  namespace: enterprise-app
+data:
+  active: blue

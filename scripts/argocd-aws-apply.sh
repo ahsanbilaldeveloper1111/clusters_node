@@ -65,9 +65,12 @@ else
     || die "Argo CD not installed. Re-run without SKIP_INSTALL=true"
 fi
 
+if [[ "${ARGOCD_BLUE_GREEN:-false}" == "true" ]]; then
+  export ARGOCD_BLUE_GREEN=true
+fi
 echo "==> Bootstrapping AWS Application + app-secrets..."
 # shellcheck disable=SC2090
-AWS_REGION="$AWS_REGION" bash "$ROOT/scripts/argocd-bootstrap-aws.sh"
+AWS_REGION="$AWS_REGION" ARGOCD_BLUE_GREEN="${ARGOCD_BLUE_GREEN:-false}" bash "$ROOT/scripts/argocd-bootstrap-aws.sh"
 
 echo ""
 echo "==> Application status"

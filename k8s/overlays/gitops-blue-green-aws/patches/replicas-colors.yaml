@@ -1,0 +1,32 @@
+# Replica counts per color — updated by Argo blue/green CD scripts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-blue
+  namespace: enterprise-app
+spec:
+  replicas: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-blue
+  namespace: enterprise-app
+spec:
+  replicas: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-green
+  namespace: enterprise-app
+spec:
+  replicas: 0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-green
+  namespace: enterprise-app
+spec:
+  replicas: 0

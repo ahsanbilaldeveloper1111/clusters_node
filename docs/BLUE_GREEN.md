@@ -145,7 +145,8 @@ Nginx in the frontend still proxies to `backend-service:3000`. After the switch,
 | `local` / `production` / `aws-production` | Rolling update (default) |
 | `blue-green` | Blue/green for local clusters |
 | `blue-green-production` | Blue/green for GHCR / generic CD |
-| `blue-green-aws` | Blue/green for **AWS EKS** (ECR + RDS/ElastiCache) |
+| `blue-green-aws` | Blue/green kubectl on **AWS EKS** |
+| `gitops-blue-green-aws` | Blue/green via **Argo CD** (Git is source of truth) |
 
 Do **not** run rolling and blue/green on the same cluster without cleaning up — they fight over backend/frontend Deployment names.
 
@@ -153,7 +154,9 @@ Do **not** run rolling and blue/green on the same cluster without cleaning up �
 |----------------|------|
 | `DEPLOY_K8S` | `DEPLOY_BLUE_GREEN` |
 | `DEPLOY_AWS_EKS` | `DEPLOY_BLUE_GREEN_AWS` |
-
+| `USE_ARGOCD_GITOPS_AWS` | `USE_ARGOCD_BLUE_GREEN_AWS` |
+| `DEPLOY_BLUE_GREEN_AWS` | `USE_ARGOCD_BLUE_GREEN_AWS` |
+`
 To leave blue/green and return to rolling:
 
 ```bash
@@ -207,8 +210,59 @@ Same switch flags as generic blue/green (`BLUE_GREEN_SWITCH`, etc.).
 
 ---
 
+## Argo CD blue/green (AWS)
+
+Git is the source of truth for **images, replicas, and which color is live**.
+
+```mermaid
+flowchart LR
+  CD[GitHub CD] -->|1 commit standby images| Git[gitops-blue-green-aws]
+  Git --> Argo[Argo CD]
+  Argo -->|sync| Standby[Standby pods Ready]
+  CD -->|2 commit switch selectors| Git
+  Argo -->|sync| Live[Traffic on new color]
+```
+
+### One-time setup
+
+```bash
+# Install Argo + blue/green Application (not rolling enterprise-app-aws)
+ARGOCD_BLUE_GREEN=true npm run argocd:aws:apply
+# or: npm run argocd:aws:blue-green
+```
+
+GitHub variables:
+
+| Variable | Value |
+|----------|--------|
+| `USE_ARGOCD_BLUE_GREEN_AWS` | `true` |
+| `PUSH_ECR` | `true` |
+
+Do **not** also enable `USE_ARGOCD_GITOPS_AWS`, `DEPLOY_AWS_EKS`, or `DEPLOY_BLUE_GREEN_AWS`.
+
+### CD flow
+
+1. Mirror images to ECR  
+2. `argocd-gitops-blue-green-aws-standby.sh` — set standby color images + replicas in Git  
+3. Commit/push → Argo syncs standby  
+4. Wait until standby Deployments are Ready  
+5. `argocd-gitops-blue-green-aws-switch.sh` — flip Service selectors + active ConfigMap in Git  
+6. Commit/push → Argo syncs cutover  
+
+Manual CD checkbox: **gitops_blue_green_aws**.
+
+### Files
+
+| Path | Role |
+|------|------|
+| `k8s/overlays/gitops-blue-green-aws/` | Argo sync path |
+| `k8s/argocd/applications/enterprise-app-aws-bg.yaml` | Application |
+| `scripts/argocd-gitops-blue-green-aws-*.sh` | Standby / switch / helpers |
+
+---
+
 ## Limitations (intentional)
 
 - **Shared DB/Redis** — schema migrations must stay backward-compatible across the cutover window.
 - **No HPA** on color Deployments in this overlay (fixed replicas; keeps the demo simple).
-- **Not Argo Rollouts** — plain Deployments + Service selector; easy to learn, no CRDs. Argo GitOps on AWS still uses rolling `gitops-aws` unless you point an Application at `blue-green-aws`.
+- **Not Argo Rollouts CRD** — blue/green is encoded in Git (Deployments + Service selectors), synced by Argo CD Applications.
