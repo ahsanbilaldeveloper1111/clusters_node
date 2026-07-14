@@ -2,7 +2,8 @@
 # Shared helpers for Argo CD blue/green GitOps (AWS).
 set -euo pipefail
 
-GITOPS_BG_DIR="${GITOPS_BG_DIR:-k8s/overlays/blue-green-aws}"
+# Argo CD sync path (not the kubectl-only blue-green-aws overlay)
+GITOPS_BG_DIR="${GITOPS_BG_DIR:-k8s/overlays/gitops-blue-green-aws}"
 ACTIVE_COLOR_FILE="${GITOPS_BG_DIR}/patches/active-color.yaml"
 SERVICE_COLOR_FILE="${GITOPS_BG_DIR}/patches/service-color-selector.yaml"
 REPLICAS_FILE="${GITOPS_BG_DIR}/patches/replicas-colors.yaml"

@@ -206,7 +206,7 @@ ARGOCD_BLUE_GREEN=true npm run argocd:aws:apply
 GitHub: `USE_ARGOCD_BLUE_GREEN_AWS=true` + `PUSH_ECR=true`  
 (Do not combine with `USE_ARGOCD_GITOPS_AWS` or `DEPLOY_BLUE_GREEN_AWS`.)
 
-CD commits standby images, waits for Ready, then commits the Service color switch. See [BLUE_GREEN.md](BLUE_GREEN.md).
+CD commits standby images, waits for Ready (auto-aborts on failure), switches traffic, verifies `/health` (auto-rollbacks on failure). See [BLUE_GREEN.md](BLUE_GREEN.md).
 
 ### Enable AWS GitOps in CD
 

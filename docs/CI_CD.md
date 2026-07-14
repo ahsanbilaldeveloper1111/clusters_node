@@ -78,7 +78,8 @@ GitHub → **Actions** → **CD** → **Run workflow**:
 | **deploy_aws_eks** | Deploy to AWS EKS using `k8s/overlays/aws-production` |
 | **gitops_commit** | Commit GHCR tags to `k8s/overlays/gitops` |
 | **gitops_commit_aws** | Commit ECR tags to `k8s/overlays/gitops-aws` (Argo CD rolling) |
-| **gitops_blue_green_aws** | Argo CD blue/green (standby + switch commits) |
+| **gitops_blue_green_aws** | Argo CD blue/green (standby + switch commits; auto-abort/rollback on failure) |
+| **rollback_blue_green_aws** | Manual Argo blue/green rollback only (no image build) |
 | **deploy_lambda_documents** | Build/push Lambda Docker image and update function |
 
 ## Kubernetes deployment — generic cluster

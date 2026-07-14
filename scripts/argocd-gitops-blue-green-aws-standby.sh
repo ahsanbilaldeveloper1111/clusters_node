@@ -9,6 +9,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+export GITOPS_BG_DIR="${GITOPS_BG_DIR:-k8s/overlays/gitops-blue-green-aws}"
 # shellcheck source=argocd-gitops-blue-green-lib.sh
 source "$ROOT/scripts/argocd-gitops-blue-green-lib.sh"
 

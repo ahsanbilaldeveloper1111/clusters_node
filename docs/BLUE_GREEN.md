@@ -245,11 +245,28 @@ Do **not** also enable `USE_ARGOCD_GITOPS_AWS`, `DEPLOY_AWS_EKS`, or `DEPLOY_BLU
 1. Mirror images to ECR  
 2. `argocd-gitops-blue-green-aws-standby.sh` — set standby color images + replicas in Git  
 3. Commit/push → Argo syncs standby  
-4. Wait until standby Deployments are Ready  
-5. `argocd-gitops-blue-green-aws-switch.sh` — flip Service selectors + active ConfigMap in Git  
-6. Commit/push → Argo syncs cutover  
+4. Wait until standby Deployments are Ready — **on failure, auto-abort** (scale standby back to 0 in Git)  
+5. Switch commit with **previous color kept up** (`SCALE_DOWN_OLD=false`)  
+6. Verify Service selector + `/health` — **on failure, auto-rollback** traffic to previous color  
+7. On success, scale previous color to 0  
 
-Manual CD checkbox: **gitops_blue_green_aws**.
+Manual CD checkboxes: **gitops_blue_green_aws**, **rollback_blue_green_aws**.
+
+### Auto-rollback (what it does / does not)
+
+| Failure point | Auto action |
+|---------------|-------------|
+| Standby never Ready / Argo sync Failed | Abort standby (replicas → 0); live traffic unchanged |
+| Cutover verify fails (`/health` or Ready) | Rollback Git to previous color |
+| DB migration already applied | **Not** undone — keep migrations backward-compatible |
+
+Local / CLI:
+
+```bash
+npm run argocd:aws:blue-green:abort-standby   # after failed standby
+npm run argocd:aws:blue-green:rollback        # flip traffic back
+# then commit + push
+```
 
 ### Files
 
@@ -257,7 +274,10 @@ Manual CD checkbox: **gitops_blue_green_aws**.
 |------|------|
 | `k8s/overlays/gitops-blue-green-aws/` | Argo sync path |
 | `k8s/argocd/applications/enterprise-app-aws-bg.yaml` | Application |
-| `scripts/argocd-gitops-blue-green-aws-*.sh` | Standby / switch / helpers |
+| `scripts/argocd-gitops-blue-green-aws-standby.sh` | Standby images |
+| `scripts/argocd-gitops-blue-green-aws-switch.sh` | Traffic cutover in Git |
+| `scripts/argocd-gitops-blue-green-aws-abort-standby.sh` | Abort failed standby |
+| `scripts/argocd-gitops-blue-green-aws-rollback.sh` | Rollback traffic |
 
 ---
 
@@ -266,3 +286,4 @@ Manual CD checkbox: **gitops_blue_green_aws**.
 - **Shared DB/Redis** — schema migrations must stay backward-compatible across the cutover window.
 - **No HPA** on color Deployments in this overlay (fixed replicas; keeps the demo simple).
 - **Not Argo Rollouts CRD** — blue/green is encoded in Git (Deployments + Service selectors), synced by Argo CD Applications.
+- **Auto-rollback does not undo database schema** — only Git / traffic / replica state.
