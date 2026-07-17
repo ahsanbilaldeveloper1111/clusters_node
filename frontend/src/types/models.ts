@@ -16,6 +16,7 @@ export interface Product {
   stock: number;
   category: string | null;
   attributes: Record<string, unknown>;
+  version?: number;
 }
 
 export interface Order {
@@ -28,6 +29,9 @@ export interface Order {
 
 export interface AuthPayload {
   token: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresIn?: string;
   user: User;
 }
 

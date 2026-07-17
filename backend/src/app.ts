@@ -6,19 +6,33 @@ import rateLimit from 'express-rate-limit';
 import { pinoHttp } from 'pino-http';
 import { logger } from './utils/logger.js';
 import { errorHandler } from './middleware/error.middleware.js';
+import { metricsMiddleware } from './middleware/metrics.middleware.js';
+import { correlationMiddleware } from './lib/request-context.js';
+import { registerDomainEventHandlers } from './events/handlers.js';
 import authRoutes from './routes/auth.routes.js';
 import productRoutes from './routes/products.routes.js';
 import orderRoutes from './routes/orders.routes.js';
 import analyticsRoutes, { handleCallCount } from './routes/analytics.routes.js';
+import aiRoutes from './routes/ai.routes.js';
+import docsRoutes from './routes/docs.routes.js';
+import auditRoutes from './routes/audit.routes.js';
 import { authenticate, requireRole } from './middleware/auth.middleware.js';
 import systemRoutes from './routes/system.routes.js';
 
 export function createApp(): express.Application {
+  registerDomainEventHandlers();
   const app = express();
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: process.env.NODE_ENV === 'production',
+      crossOriginEmbedderPolicy: false,
+    })
+  );
   app.use(cors({ origin: true, credentials: true }));
   app.use(compression());
+  app.use(correlationMiddleware);
+  app.use(metricsMiddleware);
 
   /** Large payload for millions of filter numbers (must run before global json parser) */
   app.post(
@@ -33,7 +47,10 @@ export function createApp(): express.Application {
   app.use(
     pinoHttp({
       logger,
-      autoLogging: { ignore: (req: { url?: string }) => req.url === '/health' },
+      autoLogging: {
+        ignore: (req: { url?: string }) =>
+          req.url === '/health' || req.url === '/metrics' || req.url?.startsWith('/api/docs'),
+      },
     })
   );
 
@@ -47,10 +64,13 @@ export function createApp(): express.Application {
   );
 
   app.use(systemRoutes);
+  app.use(docsRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/products', productRoutes);
   app.use('/api/orders', orderRoutes);
   app.use('/api/analytics', analyticsRoutes);
+  app.use('/api/ai', aiRoutes);
+  app.use('/api/audit', auditRoutes);
 
   app.use(errorHandler);
 

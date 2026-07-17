@@ -3,7 +3,10 @@ import { useAuth } from './context/AuthContext.js';
 import LoginPage from './pages/LoginPage.js';
 import DashboardPage from './pages/DashboardPage.js';
 import ProductsPage from './pages/ProductsPage.js';
+import OrdersPage from './pages/OrdersPage.js';
 import AnalyticsPage from './pages/AnalyticsPage.js';
+import AiAssistantPage from './pages/AiAssistantPage.js';
+import AuditPage from './pages/AuditPage.js';
 import SystemPage from './pages/SystemPage.js';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -19,7 +22,10 @@ function Layout({ children }: { children: React.ReactNode }) {
   const nav = [
     { to: '/', label: 'Dashboard' },
     { to: '/products', label: 'Products' },
+    { to: '/orders', label: 'Orders' },
     ...(can('analytics') ? [{ to: '/analytics', label: 'Analytics' }] : []),
+    ...(can('ai') ? [{ to: '/ai', label: 'AI Assistant' }] : []),
+    ...(can('audit') ? [{ to: '/audit', label: 'Audit' }] : []),
     ...(can('system') ? [{ to: '/system', label: 'System' }] : []),
   ];
 
@@ -70,7 +76,10 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/products" element={<ProductsPage />} />
+                <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/ai" element={<AiAssistantPage />} />
+                <Route path="/audit" element={<AuditPage />} />
                 <Route path="/system" element={<SystemPage />} />
               </Routes>
             </Layout>

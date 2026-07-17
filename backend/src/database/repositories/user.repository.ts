@@ -30,6 +30,21 @@ export async function findById(id: string): Promise<UserRow | null> {
   return rows[0] ?? null;
 }
 
+export async function createUser(input: {
+  email: string;
+  passwordHash: string;
+  fullName: string;
+  role?: 'admin' | 'manager' | 'customer';
+}): Promise<Omit<UserRow, 'password_hash'>> {
+  const { rows } = await query<Omit<UserRow, 'password_hash'>>(
+    `INSERT INTO users (email, password_hash, full_name, role)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, email, full_name, role, metadata, is_active, created_at`,
+    [input.email, input.passwordHash, input.fullName, input.role ?? 'customer']
+  );
+  return rows[0]!;
+}
+
 export async function listActive(limit = 50, offset = 0): Promise<Omit<UserRow, 'password_hash'>[]> {
   const { rows } = await query(
     `SELECT id, email, full_name, role, metadata, is_active, created_at

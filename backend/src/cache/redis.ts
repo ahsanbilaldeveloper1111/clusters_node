@@ -1,6 +1,9 @@
 import { Redis } from 'ioredis';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
+import { redisCircuit, CircuitOpenError } from '../lib/circuit-breaker.js';
+import { features } from '../config/features.js';
+import { ok, err, type Result } from '../lib/result.js';
 
 let redis: Redis | null = null;
 
@@ -16,30 +19,42 @@ export function getRedis(): Redis | null {
   return redis;
 }
 
-export async function cacheGet<T>(key: string): Promise<T | null> {
+async function withRedisCircuit<T>(fn: (client: Redis) => Promise<T>): Promise<Result<T, string>> {
   const client = getRedis();
-  if (!client) return null;
+  if (!client) return err('redis_disabled');
+
   try {
+    if (features.circuitBreaker()) {
+      const value = await redisCircuit.exec(() => fn(client));
+      return ok(value);
+    }
+    return ok(await fn(client));
+  } catch (e) {
+    if (e instanceof CircuitOpenError) {
+      logger.warn('Redis circuit open — degrading gracefully');
+      return err('circuit_open');
+    }
+    return err(e instanceof Error ? e.message : 'redis_error');
+  }
+}
+
+export async function cacheGet<T>(key: string): Promise<T | null> {
+  const result = await withRedisCircuit(async (client) => {
     const raw = await client.get(key);
     return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
+  });
+  return result.ok ? result.value : null;
 }
 
 export async function cacheSet(key: string, value: unknown, ttlSeconds = 300): Promise<void> {
-  const client = getRedis();
-  if (!client) return;
-  try {
+  await withRedisCircuit(async (client) => {
     await client.setex(key, ttlSeconds, JSON.stringify(value));
-  } catch (err) {
-    logger.warn({ err, key }, 'Cache set failed');
-  }
+  });
 }
 
 export async function cacheDel(pattern: string): Promise<void> {
-  const client = getRedis();
-  if (!client) return;
-  const keys = await client.keys(pattern);
-  if (keys.length) await client.del(...keys);
+  await withRedisCircuit(async (client) => {
+    const keys = await client.keys(pattern);
+    if (keys.length) await client.del(...keys);
+  });
 }

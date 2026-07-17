@@ -2,7 +2,19 @@
 
 Base URL: `http://localhost:3000/api` (dev) or `http://localhost:8080/api` (Docker via nginx)
 
+**Interactive docs:** `http://localhost:3000/api/docs` (Swagger UI)  
+**OpenAPI JSON:** `http://localhost:3000/api/openapi.json`  
+**Metrics:** `http://localhost:3000/metrics` (Prometheus)
+
 ## Auth
+
+### POST `/auth/register`
+
+```json
+{ "email": "new@example.com", "password": "Password123!", "fullName": "New User" }
+```
+
+Creates a `customer` account and returns access + refresh tokens.
 
 ### POST `/auth/login`
 
@@ -16,18 +28,65 @@ Base URL: `http://localhost:3000/api` (dev) or `http://localhost:8080/api` (Dock
 {
   "data": {
     "token": "eyJhbG...",
+    "accessToken": "eyJhbG...",
+    "refreshToken": "...",
+    "expiresIn": "15m",
     "user": { "id": "...", "email": "...", "fullName": "...", "role": "admin" }
   }
 }
 ```
 
+### POST `/auth/refresh`
+
+```json
+{ "refreshToken": "..." }
+```
+
+Returns a new access + refresh token pair (rotation).
+
+### POST `/auth/logout`
+
+```json
+{ "refreshToken": "..." }
+```
+
+Revokes the refresh token server-side.
+
+## AI (authenticated: admin, manager)
+
+### POST `/ai/insights`
+
+```json
+{
+  "question": "Which categories drive the most revenue?",
+  "context": "general"
+}
+```
+
+**Response:**
+
+```json
+{
+  "data": {
+    "answer": "...",
+    "mode": "demo",
+    "model": "rule-based-demo",
+    "sources": ["orders", "products"],
+    "generatedAt": "2026-..."
+  }
+}
+```
+
+Set `OPENAI_API_KEY` on the API for `mode: "openai"`.
+
 ## Products
 
 ### GET `/products`
 
-List all products. Optional query: `?category=Electronics`
+List products. Optional: `?category=Electronics`  
+**Pagination:** `?page=1&limit=20&q=laptop` returns `{ items, page, limit, total, totalPages }`.
 
-Cached in Redis for 120s when Redis is available.
+Cached in Redis for 120s when Redis is available (non-paginated list).
 
 ### GET `/products/search?q=keyboard`
 
@@ -37,7 +96,43 @@ Trigram similarity search.
 
 Single product by UUID.
 
+### POST `/products` (admin, manager)
+
+Create product (`sku`, `name`, `price`, `stock`, …).
+
+### PATCH `/products/:id` (admin, manager)
+
+Supports optimistic locking via `expectedVersion` (returns `409 OPTIMISTIC_LOCK` on conflict).
+
+### DELETE `/products/:id` (admin)
+
 ## Orders (authenticated)
+
+### GET `/orders`
+
+Own orders. Staff can use `?page=1&all=true` for all orders.
+
+### POST `/orders`
+
+Create order with stock reservation (`FOR UPDATE` + transaction).
+
+Optional header for safe retries:
+
+```
+Idempotency-Key: <unique-client-key>
+```
+
+### POST `/orders/:id/cancel`
+
+Cancel order and restore stock (not allowed if shipped/delivered).
+
+## Audit (admin, manager)
+
+### GET `/audit?page=1&entityType=order`
+
+Paginated audit trail of product/order/user events.
+
+## Analytics (authenticated: admin, manager)
 
 Header: `Authorization: Bearer <token>`
 

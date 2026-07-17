@@ -3,6 +3,11 @@ import cluster from 'node:cluster';
 import os from 'node:os';
 import { healthCheck } from '../database/pool.js';
 import { getRedis } from '../cache/redis.js';
+import { getMetrics, getMetricsContentType } from '../middleware/metrics.middleware.js';
+import { redisCircuit, aiCircuit } from '../lib/circuit-breaker.js';
+import { features } from '../config/features.js';
+import { eventBus } from '../events/event-bus.js';
+import { getCorrelationId } from '../lib/request-context.js';
 
 const router = Router();
 
@@ -52,6 +57,16 @@ router.get('/health/ready', readinessHandler);
 /** Backwards-compatible alias (load balancers, Docker healthcheck) */
 router.get('/health', readinessHandler);
 
+/** Prometheus metrics (scrape from in-cluster Prometheus or local dev) */
+router.get('/metrics', async (_req, res, next) => {
+  try {
+    res.set('Content-Type', getMetricsContentType());
+    res.end(await getMetrics());
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get('/api/system/info', (_req, res) => {
   res.json({
     data: {
@@ -63,6 +78,34 @@ router.get('/api/system/info', (_req, res) => {
       cluster: {
         isPrimary: cluster.isPrimary,
         workerId: process.env['WORKER_ID'],
+      },
+      correlationId: getCorrelationId(),
+      advanced: {
+        featureFlags: {
+          aiInsights: features.aiInsights(),
+          idempotency: features.idempotency(),
+          circuitBreaker: features.circuitBreaker(),
+          domainEvents: features.domainEvents(),
+        },
+        circuitBreakers: [redisCircuit.getStatus(), aiCircuit.getStatus()],
+        domainEventListeners: {
+          OrderCreated: eventBus.listenerCount('OrderCreated'),
+          OrderCancelled: eventBus.listenerCount('OrderCancelled'),
+          UserRegistered: eventBus.listenerCount('UserRegistered'),
+          ProductUpdated: eventBus.listenerCount('ProductUpdated'),
+          AiInsightGenerated: eventBus.listenerCount('AiInsightGenerated'),
+        },
+        concepts: [
+          'correlation-ids',
+          'circuit-breaker',
+          'domain-events',
+          'idempotency-keys',
+          'optimistic-locking',
+          'result-either',
+          'feature-flags',
+          'repository-pattern',
+          'strategy-ai-providers',
+        ],
       },
     },
   });

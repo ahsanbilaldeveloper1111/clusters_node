@@ -13,6 +13,8 @@ Runs on every **push** and **pull request** to `main`, `master`, or `develop`.
 | **build** | `npm install`, compile backend + frontend TypeScript |
 | **build** (k8s) | `kubectl kustomize` local, **blue-green**, production, **blue-green-production**, **aws-production**, and gitops overlays |
 | **database** | Starts Postgres 16, runs migrations + seed |
+| **test** | ESLint, typecheck, Vitest API tests (auth, health, products) |
+| **security** | `npm audit --audit-level=high` |
 | **docker** | Builds backend, frontend, frontend-k8s, **Lambda document-upload** images (no push), validates `docker compose config` |
 | **terraform** | `terraform fmt -check`, `init`, `validate` for AWS infrastructure |
 

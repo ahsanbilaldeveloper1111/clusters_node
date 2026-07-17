@@ -15,6 +15,7 @@ interface AuthContextValue {
   user: User | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, fullName: string) => Promise<void>;
   logout: () => void;
   can: (permission: string) => boolean;
 }
@@ -23,10 +24,16 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const STORAGE_KEY = 'enterprise_auth';
 
-function loadStored(): { token: string; user: User } | null {
+interface StoredAuth {
+  token: string;
+  refreshToken?: string;
+  user: User;
+}
+
+function loadStored(): StoredAuth | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as { token: string; user: User }) : null;
+    return raw ? (JSON.parse(raw) as StoredAuth) : null;
   } catch {
     return null;
   }
@@ -35,23 +42,52 @@ function loadStored(): { token: string; user: User } | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const stored = loadStored();
   const [token, setToken] = useState<string | null>(stored?.token ?? null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(stored?.refreshToken ?? null);
   const [user, setUser] = useState<User | null>(stored?.user ?? null);
+
+  const persist = useCallback((data: AuthPayload) => {
+    const access = data.accessToken ?? data.token;
+    const refresh = data.refreshToken ?? refreshToken;
+    setToken(access);
+    if (refresh) setRefreshToken(refresh);
+    setUser(data.user);
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ token: access, refreshToken: refresh, user: data.user })
+    );
+  }, [refreshToken]);
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await apiRequest<AuthPayload>('/auth/login', {
       method: 'POST',
       body: { email, password },
     });
-    setToken(data.token);
-    setUser(data.user);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ token: data.token, user: data.user }));
-  }, []);
+    persist(data);
+  }, [persist]);
+
+  const register = useCallback(
+    async (email: string, password: string, fullName: string) => {
+      const data = await apiRequest<AuthPayload>('/auth/register', {
+        method: 'POST',
+        body: { email, password, fullName },
+      });
+      persist(data);
+    },
+    [persist]
+  );
 
   const logout = useCallback(() => {
+    if (refreshToken) {
+      void apiRequest('/auth/logout', {
+        method: 'POST',
+        body: { refreshToken },
+      }).catch(() => undefined);
+    }
     setToken(null);
+    setRefreshToken(null);
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
-  }, []);
+  }, [refreshToken]);
 
   const can = useCallback(
     (permission: string) => {
@@ -62,15 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ user, token, login, logout, can }),
-    [user, token, login, logout, can]
+    () => ({ user, token, login, register, logout, can }),
+    [user, token, login, register, logout, can]
   );
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {

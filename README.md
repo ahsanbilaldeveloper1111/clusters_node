@@ -1,6 +1,23 @@
 # Enterprise Advanced App
 
-A production-style **Node.js + TypeScript** monorepo demonstrating enterprise patterns: **cluster mode**, **worker threads**, **PostgreSQL advanced SQL**, **Redis caching**, **Docker**, **Kubernetes**, and a **React + TypeScript** frontend with advanced type patterns.
+A **portfolio-grade** full-stack project for backend, full-stack, and platform engineering roles: production patterns recruiters and hiring managers look for in 2025–2026.
+
+## Why this project stands out
+
+| Area | What you can demo |
+|------|-------------------|
+| **Backend** | Node cluster, Worker Threads, advanced PostgreSQL, Redis cache, transactional orders |
+| **Advanced patterns** | Correlation IDs, circuit breaker, domain events, idempotency, optimistic locking |
+| **Security** | JWT + refresh token rotation, RBAC, Helmet, rate limits, CI audit |
+| **AI** | Business insights API grounded in live data (OpenAI or demo mode) |
+| **Observability** | Prometheus `/metrics`, structured logging (Pino), health probes |
+| **API** | OpenAPI 3.1 + Swagger UI at `/api/docs` |
+| **Commerce** | Product CRUD, order place/cancel with stock restore, pagination |
+| **Security** | Register, JWT refresh rotation, audit trail API |
+| **Quality** | Vitest + Supertest integration tests, ESLint, TypeScript strict |
+| **Platform** | Docker, Kubernetes, Terraform (EKS/RDS), Argo CD GitOps, blue/green + auto-rollback |
+
+**10-minute live demo:** [docs/DEMO.md](docs/DEMO.md)
 
 ## Quick start
 
@@ -9,109 +26,134 @@ A production-style **Node.js + TypeScript** monorepo demonstrating enterprise pa
 ```bash
 cp .env.example .env
 docker compose up --build -d
-docker compose exec backend node backend/dist/database/seed.js 2>/dev/null || \
-  docker compose run --rm backend npm run db:seed -w backend
+docker compose exec backend npm run db:migrate -w backend
+docker compose exec backend npm run db:seed -w backend
 ```
 
-- **Frontend:** http://localhost:8081  
-- **API:** http://localhost:3000/api  
-- **Health:** http://localhost:3000/health  
+| URL | Purpose |
+|-----|---------|
+| http://localhost:8081 | React UI |
+| http://localhost:3000/health | Readiness |
+| http://localhost:3000/metrics | Prometheus metrics |
+| http://localhost:3000/api/docs | Swagger UI |
 
 **Login:** `admin@enterprise.local` / `Password123!`
 
 ### Local development
 
 ```bash
-# Start Postgres + Redis
 docker compose up postgres redis -d
-
 npm install
-npm run db:migrate
-npm run db:seed
+npm run db:migrate && npm run db:seed
 npm run dev
 ```
 
-- **Frontend:** http://localhost:5173 (proxies `/api` to backend)  
-- **Backend:** http://localhost:3000  
+### Quality gates
+
+```bash
+npm run test        # API integration tests (Vitest + Supertest)
+npm run lint        # ESLint (backend)
+npm run typecheck   # TypeScript
+npm run build       # Production build
+```
+
+## Architecture (high level)
+
+```mermaid
+flowchart TB
+  subgraph clients [Clients]
+    UI[React SPA]
+    Prom[Prometheus]
+  end
+  subgraph api [API tier]
+    Nginx[nginx]
+    Cluster[Node cluster workers]
+    AI[AI insights service]
+  end
+  subgraph data [Data]
+    PG[(PostgreSQL)]
+    Redis[(Redis)]
+  end
+  subgraph cloud [AWS optional]
+    EKS[EKS]
+    Argo[Argo CD GitOps]
+    BG[Blue/Green cutover]
+    RDS[(RDS)]
+    ECR[ECR images]
+  end
+  UI --> Nginx --> Cluster
+  Prom --> Cluster
+  Cluster --> PG
+  Cluster --> Redis
+  Cluster --> AI
+  ECR --> EKS
+  Argo --> EKS
+  BG --> EKS
+  EKS --> RDS
+```
 
 ## Project structure
 
 ```
-├── backend/                 # Node.js API (cluster + workers)
-│   └── src/
-│       ├── cluster/         # Primary process — forks workers
-│       ├── workers/         # Worker Thread CPU tasks
-│       ├── database/        # Pool, repos, advanced queries
-│       ├── routes/          # REST API
-│       └── server.ts        # Express per worker
-├── frontend/                # React + Vite + TypeScript
-│   └── src/
-│       ├── types/           # Generics, unions, branded types
-│       ├── services/        # Typed API client
-│       └── pages/           # UI screens
-├── database/init/           # SQL schema (Docker init + migrations)
-├── docker/                  # Multi-stage Dockerfiles + nginx
-├── k8s/                     # Kubernetes manifests (Kustomize base + overlays)
-├── scripts/                 # k8s-build-images.sh, k8s-deploy-local.sh
-├── docs/                    # Detailed architecture guides
-└── docker-compose.yml
+├── backend/          # Express API — cluster, JWT, AI, metrics, OpenAPI
+├── frontend/         # React + Vite — dashboard, AI assistant, RBAC UI
+├── database/init/    # SQL schema + migrations
+├── k8s/              # Kustomize + Argo CD + blue/green overlays
+├── terraform/        # AWS VPC, EKS, RDS, ElastiCache, ECR, Lambda
+├── lambda/           # Document upload (API Gateway → Lambda → S3)
+├── scripts/          # Deploy, GitOps, blue/green automation
+└── docs/             # Architecture, CI/CD, AWS, demo script
 ```
 
 ## Features
 
 | Area | Features |
 |------|----------|
-| **Node.js** | Cluster (multi-core), Worker Threads, graceful shutdown, structured logging |
-| **PostgreSQL** | CTEs, window functions, JSONB, trigram search, transactions, `FOR UPDATE` |
-| **API** | JWT auth, rate limiting, helmet, Zod validation, layered architecture |
-| **Cache** | Redis with graceful degradation |
-| **Frontend** | Advanced TS types, generic API client, role-based UI |
-| **Docker** | Multi-stage builds, health checks, nginx reverse proxy |
-| **Kubernetes** | Kustomize, HPA, PDB, NetworkPolicy, Ingress, Jobs, init containers |
+| **Node.js** | Cluster mode, Worker Threads, graceful shutdown, Pino logging |
+| **PostgreSQL** | CTEs, window functions, JSONB, trigram search, transactions |
+| **Security** | Access + refresh JWT rotation, register, RBAC, Helmet, rate limiting, Zod, audit trail |
+| **AI** | `/api/ai/insights` — LLM or demo mode from live analytics |
+| **Commerce** | Product CRUD, paginated catalog, order cancel + stock restore |
+| **Observability** | `/metrics` (Prometheus), `/health/live`, `/health/ready` |
+| **Frontend** | Typed API client, role-based nav, AI Assistant page |
+| **Kubernetes** | HPA, PDB, NetworkPolicy, Ingress, migrate Jobs |
+| **CI/CD** | Tests, lint, audit, Docker, Kustomize, Terraform validate |
+| **AWS** | EKS, RDS, ElastiCache, ECR, Argo GitOps blue/green |
 
 ## CI/CD
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| [CI](.github/workflows/ci.yml) | PR / push | Build, migrations, Docker, Kustomize (incl. aws-production), Terraform validate |
-| [CD](.github/workflows/cd.yml) | `main` / tags `v*` | GHCR + ECR publish, optional K8s / AWS EKS deploy |
+| [CI](.github/workflows/ci.yml) | PR / push | Build, **tests**, lint, migrations, Docker, Kustomize, Terraform |
+| [CD](.github/workflows/cd.yml) | `main` / tags | GHCR + ECR, K8s / AWS / Argo GitOps deploy |
 
 Details: [docs/CI_CD.md](docs/CI_CD.md)
 
-## Troubleshooting Docker builds
-
-If you see `auth.docker.io` or DNS `i/o timeout`, see **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** (WSL2 DNS fix).
-
 ## Documentation
 
-- [Line-by-line project guide (features, flows, code)](docs/PROJECT_LINE_BY_LINE_GUIDE.md)
+- **[Features explained (start here)](docs/FEATURES.md)** — what each feature does and how to demo it
+- **[Demo script for interviews](docs/DEMO.md)**
+- [Advanced concepts (patterns map)](docs/ADVANCED_CONCEPTS.md)
+- [Security practices](docs/SECURITY.md)
 - [Architecture overview](docs/ARCHITECTURE.md)
-- [Cluster & Worker Threads](docs/CLUSTER_AND_WORKERS.md)
-- [PostgreSQL & queries](docs/DATABASE.md)
-- [Docker deployment](docs/DOCKER.md)
-- [Kubernetes deployment](docs/KUBERNETES.md)
-- [Kubernetes deploy flow (detailed)](docs/KUBERNETES_DEPLOYMENT_FLOW.md)
+- [Blue/green deployment](docs/BLUE_GREEN.md)
 - [Argo CD GitOps](docs/ARGOCD.md)
+- [AWS deployment](docs/AWS_DEPLOYMENT.md)
 - [API reference](docs/API.md)
-- [TypeScript patterns](docs/TYPESCRIPT.md)
 - [CI/CD pipeline](docs/CI_CD.md)
-- [AWS deployment (Terraform + EKS)](docs/AWS_DEPLOYMENT.md)
-- [Document upload Lambda + S3](docs/LAMBDA_DOCUMENTS.md)
-- [AWS full guide — Terraform + CI/CD step-by-step](docs/AWS_FULL_DEPLOYMENT_GUIDE.md)
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Backend cluster + frontend dev server |
+| `npm run test` | API integration tests |
+| `npm run lint` | ESLint |
 | `npm run build` | Build both workspaces |
 | `npm run docker:up` | Full stack in Docker |
-| `npm run k8s:build` | Build images for local Kubernetes |
-| `npm run k8s:deploy` | Deploy local Kustomize overlay |
-| `npm run k8s:manifests` | Render manifests (dry-run) |
-| `npm run db:migrate` | Apply SQL migrations |
-| `npm run db:seed` | Seed users & products |
+| `npm run k8s:deploy` | Deploy local Kubernetes overlay |
+| `npm run argocd:aws:blue-green` | Argo CD blue/green on AWS |
 
 ## License
 
-MIT — use freely for learning and as a starter template.
+MIT — use freely for learning and portfolio.

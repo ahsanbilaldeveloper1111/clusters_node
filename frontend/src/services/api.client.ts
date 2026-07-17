@@ -14,7 +14,7 @@ export class ApiClientError extends Error {
 }
 
 type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   token?: string | null;
 };
@@ -41,6 +41,10 @@ export async function apiRequest<T>(
 
   const res = await fetch(`${BASE}${path}`, init);
 
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   const json = (await res.json()) as ApiResponse<T> | ApiErrorBody;
 
   if (!res.ok) {
@@ -61,5 +65,8 @@ export function createApiClient(token: string | null) {
     get: <T>(path: string) => apiRequest<T>(path, { token }),
     post: <T>(path: string, body: unknown) =>
       apiRequest<T>(path, { method: 'POST', body, token }),
+    patch: <T>(path: string, body: unknown) =>
+      apiRequest<T>(path, { method: 'PATCH', body, token }),
+    delete: <T>(path: string) => apiRequest<T>(path, { method: 'DELETE', token }),
   };
 }

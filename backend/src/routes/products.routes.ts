@@ -1,14 +1,44 @@
 import { Router } from 'express';
 import * as productRepo from '../database/repositories/product.repository.js';
+import * as auditRepo from '../database/repositories/audit.repository.js';
 import { searchProducts } from '../database/queries/analytics.queries.js';
-import { cacheGet, cacheSet } from '../cache/redis.js';
+import { cacheGet, cacheSet, cacheDel } from '../cache/redis.js';
 import { z } from 'zod';
+import { authenticate, requireRole } from '../middleware/auth.middleware.js';
+import { parsePagination } from '../utils/pagination.js';
+import { NotFoundError } from '../utils/errors.js';
+import { features } from '../config/features.js';
+import { eventBus } from '../events/event-bus.js';
 
 const router = Router();
+
+const createSchema = z.object({
+  sku: z.string().min(2).max(50),
+  name: z.string().min(2).max(300),
+  description: z.string().max(5000).optional().nullable(),
+  price: z.number().nonnegative(),
+  stock: z.number().int().nonnegative(),
+  category: z.string().max(100).optional().nullable(),
+  attributes: z.record(z.unknown()).optional(),
+});
+
+const updateSchema = createSchema.partial().omit({ sku: true }).extend({
+  expectedVersion: z.number().int().positive().optional(),
+});
 
 router.get('/', async (req, res, next) => {
   try {
     const category = typeof req.query['category'] === 'string' ? req.query['category'] : undefined;
+    const q = typeof req.query['q'] === 'string' ? req.query['q'] : undefined;
+    const paginated = req.query['page'] !== undefined || req.query['limit'] !== undefined;
+
+    if (paginated) {
+      const { page, limit, offset } = parsePagination(req.query as Record<string, unknown>);
+      const result = await productRepo.listPaginated({ category, q, page, limit, offset });
+      res.json({ data: result });
+      return;
+    }
+
     const cacheKey = `products:list:${category ?? 'all'}`;
     const cached = await cacheGet<unknown[]>(cacheKey);
     if (cached) {
@@ -41,6 +71,68 @@ router.get('/:id', async (req, res, next) => {
       return;
     }
     res.json({ data: product });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/', authenticate, requireRole('admin', 'manager'), async (req, res, next) => {
+  try {
+    const body = createSchema.parse(req.body);
+    const product = await productRepo.create(body);
+    await auditRepo.writeAudit({
+      entityType: 'product',
+      entityId: product.id,
+      action: 'created',
+      actorId: req.user!.sub,
+      payload: { sku: product.sku },
+    });
+    await cacheDel('products:list:*');
+    res.status(201).json({ data: product });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/:id', authenticate, requireRole('admin', 'manager'), async (req, res, next) => {
+  try {
+    const body = updateSchema.parse(req.body);
+    const product = await productRepo.update(req.params['id']!, body);
+    if (!product) throw new NotFoundError('Product');
+    if (features.domainEvents()) {
+      eventBus.emit({
+        type: 'ProductUpdated',
+        productId: product.id,
+        actorId: req.user!.sub,
+      });
+    } else {
+      await auditRepo.writeAudit({
+        entityType: 'product',
+        entityId: product.id,
+        action: 'updated',
+        actorId: req.user!.sub,
+        payload: body,
+      });
+    }
+    await cacheDel('products:list:*');
+    res.json({ data: product });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
+  try {
+    const ok = await productRepo.remove(req.params['id']!);
+    if (!ok) throw new NotFoundError('Product');
+    await auditRepo.writeAudit({
+      entityType: 'product',
+      entityId: req.params['id'],
+      action: 'deleted',
+      actorId: req.user!.sub,
+    });
+    await cacheDel('products:list:*');
+    res.status(204).send();
   } catch (err) {
     next(err);
   }

@@ -18,7 +18,29 @@ const envSchema = z.object({
     .transform((v) => (typeof v === 'boolean' ? v : v === 'true' || v === '1')),
   REDIS_URL: z.string().optional(),
   JWT_SECRET: z.string().min(16).default('dev-secret-change-in-production-min-16-chars'),
-  JWT_EXPIRES_IN: z.string().default('1h'),
+  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+  JWT_REFRESH_EXPIRES_DAYS: z.coerce.number().default(7),
+  /** @deprecated use JWT_ACCESS_EXPIRES_IN */
+  JWT_EXPIRES_IN: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+  OPENAI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
+  FEATURE_AI_INSIGHTS: z
+    .union([z.boolean(), z.string()])
+    .default(true)
+    .transform((v) => (typeof v === 'boolean' ? v : v !== 'false' && v !== '0')),
+  FEATURE_IDEMPOTENCY: z
+    .union([z.boolean(), z.string()])
+    .default(true)
+    .transform((v) => (typeof v === 'boolean' ? v : v !== 'false' && v !== '0')),
+  FEATURE_CIRCUIT_BREAKER: z
+    .union([z.boolean(), z.string()])
+    .default(true)
+    .transform((v) => (typeof v === 'boolean' ? v : v !== 'false' && v !== '0')),
+  FEATURE_DOMAIN_EVENTS: z
+    .union([z.boolean(), z.string()])
+    .default(true)
+    .transform((v) => (typeof v === 'boolean' ? v : v !== 'false' && v !== '0')),
 });
 
 const parsed = envSchema.safeParse(process.env);

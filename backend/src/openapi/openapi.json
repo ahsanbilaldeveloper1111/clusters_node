@@ -1,0 +1,182 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Enterprise Advanced API",
+    "version": "1.0.0",
+    "description": "Production-style Node.js + TypeScript REST API with JWT, Redis cache, advanced PostgreSQL, and AI business insights."
+  },
+  "servers": [{ "url": "http://localhost:3000", "description": "Local" }],
+  "tags": [
+    { "name": "Auth", "description": "JWT login and refresh token rotation" },
+    { "name": "Products", "description": "Catalog and trigram search" },
+    { "name": "Orders", "description": "Transactional orders" },
+    { "name": "AI", "description": "LLM-powered business insights (OpenAI or demo mode)" },
+    { "name": "System", "description": "Health and metrics" }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Readiness probe",
+        "responses": {
+          "200": { "description": "Healthy" },
+          "503": { "description": "Degraded" }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Prometheus metrics",
+        "responses": { "200": { "description": "text/plain metrics" } }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Register a customer account",
+        "responses": { "201": { "description": "Created + tokens" } }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login with email and password",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Access + refresh tokens" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Rotate refresh token and issue new access token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": { "refreshToken": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "New token pair" } }
+      }
+    },
+    "/api/products": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "List products (optional pagination)",
+        "parameters": [
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Product list or paginated page" } }
+      },
+      "post": {
+        "tags": ["Products"],
+        "summary": "Create product (admin/manager)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/api/orders": {
+      "get": {
+        "tags": ["Orders"],
+        "summary": "List orders (own or all with ?all=true for staff)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Orders" } }
+      },
+      "post": {
+        "tags": ["Orders"],
+        "summary": "Place order with stock reservation",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/api/orders/{id}/cancel": {
+      "post": {
+        "tags": ["Orders"],
+        "summary": "Cancel order and restore stock",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": { "200": { "description": "Cancelled" } }
+      }
+    },
+    "/api/audit": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Paginated audit trail",
+        "security": [{ "bearerAuth": [] }],
+        "responses": { "200": { "description": "Audit events" } }
+      }
+    },
+    "/api/products/search": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "Trigram fuzzy search",
+        "parameters": [
+          { "name": "q", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Search results" } }
+      }
+    },
+    "/api/ai/insights": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Ask business questions grounded in live order/product data",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["question"],
+                "properties": {
+                  "question": { "type": "string", "minLength": 3 },
+                  "context": {
+                    "type": "string",
+                    "enum": ["orders", "products", "general"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "AI insight (openai or demo mode)" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}
