@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import { authenticate } from '../middleware/auth.middleware.js';
 import * as orderRepo from '../database/repositories/order.repository.js';
 import { parsePagination } from '../utils/pagination.js';
@@ -7,20 +6,9 @@ import { NotFoundError } from '../utils/errors.js';
 import { findIdempotentResponse, saveIdempotentResponse } from '../lib/idempotency.js';
 import { features } from '../config/features.js';
 import { eventBus } from '../events/event-bus.js';
+import { createOrderSchema } from '../openapi/schemas.js';
 
 const router = Router();
-
-const createOrderSchema = z.object({
-  items: z
-    .array(
-      z.object({
-        productId: z.string().uuid(),
-        quantity: z.number().int().positive(),
-      })
-    )
-    .min(1),
-  shippingAddress: z.record(z.unknown()).default({}),
-});
 
 router.use(authenticate);
 

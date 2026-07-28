@@ -24,7 +24,7 @@ patches:
 images:
   - name: enterprise-backend
     newName: enterprise-backend
-    newTag: local-v2
+    newTag: local-v3
   - name: enterprise-frontend
     newName: enterprise-frontend
-    newTag: local-v2
+    newTag: local-v3

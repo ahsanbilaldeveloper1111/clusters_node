@@ -3,8 +3,13 @@
 Base URL: `http://localhost:3000/api` (dev) or `http://localhost:8080/api` (Docker via nginx)
 
 **Interactive docs:** `http://localhost:3000/api/docs` (Swagger UI)  
-**OpenAPI JSON:** `http://localhost:3000/api/openapi.json`  
-**Metrics:** `http://localhost:3000/metrics` (Prometheus)
+**OpenAPI JSON:** `http://localhost:3000/api/openapi.json` (generated at runtime from Zod)
+
+OpenAPI is **not** hand-edited. Schemas live in `backend/src/openapi/schemas.ts`; paths are registered in `backend/src/openapi/document.ts`. Routes import the same Zod schemas for validation.
+
+```bash
+npm run openapi:generate -w backend   # optional: write openapi.generated.json
+```
 
 ## Auth
 

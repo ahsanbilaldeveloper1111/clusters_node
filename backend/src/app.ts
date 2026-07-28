@@ -49,7 +49,9 @@ export function createApp(): express.Application {
       logger,
       autoLogging: {
         ignore: (req: { url?: string }) =>
-          req.url === '/health' || req.url === '/metrics' || req.url?.startsWith('/api/docs'),
+          req.url === '/health' ||
+          req.url === '/metrics' ||
+          (req.url?.startsWith('/api/docs') ?? false),
       },
     })
   );

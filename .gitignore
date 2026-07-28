@@ -9,6 +9,7 @@ coverage/
 .vscode/
 .idea/
 *.tsbuildinfo
+backend/src/openapi/openapi.generated.json
 k8s/overlays/production/secrets.env
 k8s/overlays/aws-production/secrets.env
 k8s/overlays/blue-green-aws/secrets.env

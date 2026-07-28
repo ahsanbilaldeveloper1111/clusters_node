@@ -5,8 +5,8 @@
 export type CircuitState = 'closed' | 'open' | 'half_open';
 
 export class CircuitOpenError extends Error {
-  constructor(public readonly name: string) {
-    super(`Circuit breaker open: ${name}`);
+  constructor(public readonly circuitName: string) {
+    super(`Circuit breaker open: ${circuitName}`);
     this.name = 'CircuitOpenError';
   }
 }

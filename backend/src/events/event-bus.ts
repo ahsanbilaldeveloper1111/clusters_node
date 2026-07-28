@@ -4,7 +4,7 @@
  */
 import { EventEmitter } from 'node:events';
 import { logger } from '../utils/logger.js';
-import { getCorrelationId } from './request-context.js';
+import { getCorrelationId } from '../lib/request-context.js';
 
 export type DomainEvent =
   | { type: 'OrderCreated'; orderId: string; userId: string; total: number }

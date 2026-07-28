@@ -171,6 +171,7 @@ Used by Docker and Kubernetes.
 
 - **UI:** http://localhost:3000/api/docs  
 - **JSON:** `/api/openapi.json`  
+- **How:** Generated from **Zod schemas** (`@asteasolutions/zod-to-openapi`) — same schemas used for request validation. No manual `openapi.json` to maintain.  
 - **Why:** Contract-first API documentation hiring managers can click through.
 
 ### Structured logging

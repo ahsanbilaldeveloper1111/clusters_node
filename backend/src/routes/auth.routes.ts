@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import * as authService from '../services/auth.service.js';
 import * as userRepo from '../database/repositories/user.repository.js';
 import { AppError } from '../utils/errors.js';
 import { features } from '../config/features.js';
 import { eventBus } from '../events/event-bus.js';
+import { loginSchema, registerSchema, refreshSchema } from '../openapi/schemas.js';
 
 const router = Router();
 
@@ -16,21 +16,6 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: { code: 'RATE_LIMIT', message: 'Too many auth attempts' } },
-});
-
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-});
-
-const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8).max(128),
-  fullName: z.string().min(2).max(200),
-});
-
-const refreshSchema = z.object({
-  refreshToken: z.string().min(20),
 });
 
 router.post('/register', authLimiter, async (req, res, next) => {

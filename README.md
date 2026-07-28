@@ -11,7 +11,7 @@ A **portfolio-grade** full-stack project for backend, full-stack, and platform e
 | **Security** | JWT + refresh token rotation, RBAC, Helmet, rate limits, CI audit |
 | **AI** | Business insights API grounded in live data (OpenAI or demo mode) |
 | **Observability** | Prometheus `/metrics`, structured logging (Pino), health probes |
-| **API** | OpenAPI 3.1 + Swagger UI at `/api/docs` |
+| **API** | OpenAPI 3.1 generated from Zod + Swagger UI at `/api/docs` |
 | **Commerce** | Product CRUD, order place/cancel with stock restore, pagination |
 | **Security** | Register, JWT refresh rotation, audit trail API |
 | **Quality** | Vitest + Supertest integration tests, ESLint, TypeScript strict |
@@ -134,6 +134,7 @@ Details: [docs/CI_CD.md](docs/CI_CD.md)
 - **[Features explained (start here)](docs/FEATURES.md)** — what each feature does and how to demo it
 - **[Demo script for interviews](docs/DEMO.md)**
 - [Advanced concepts (patterns map)](docs/ADVANCED_CONCEPTS.md)
+- [OpenAPI / Swagger (Zod-generated)](docs/OPENAPI.md)
 - [Security practices](docs/SECURITY.md)
 - [Architecture overview](docs/ARCHITECTURE.md)
 - [Blue/green deployment](docs/BLUE_GREEN.md)

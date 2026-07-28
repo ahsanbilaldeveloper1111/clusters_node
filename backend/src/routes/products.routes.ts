@@ -9,22 +9,9 @@ import { parsePagination } from '../utils/pagination.js';
 import { NotFoundError } from '../utils/errors.js';
 import { features } from '../config/features.js';
 import { eventBus } from '../events/event-bus.js';
+import { createProductSchema, updateProductSchema } from '../openapi/schemas.js';
 
 const router = Router();
-
-const createSchema = z.object({
-  sku: z.string().min(2).max(50),
-  name: z.string().min(2).max(300),
-  description: z.string().max(5000).optional().nullable(),
-  price: z.number().nonnegative(),
-  stock: z.number().int().nonnegative(),
-  category: z.string().max(100).optional().nullable(),
-  attributes: z.record(z.unknown()).optional(),
-});
-
-const updateSchema = createSchema.partial().omit({ sku: true }).extend({
-  expectedVersion: z.number().int().positive().optional(),
-});
 
 router.get('/', async (req, res, next) => {
   try {
@@ -78,7 +65,7 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', authenticate, requireRole('admin', 'manager'), async (req, res, next) => {
   try {
-    const body = createSchema.parse(req.body);
+    const body = createProductSchema.parse(req.body);
     const product = await productRepo.create(body);
     await auditRepo.writeAudit({
       entityType: 'product',
@@ -96,8 +83,9 @@ router.post('/', authenticate, requireRole('admin', 'manager'), async (req, res,
 
 router.patch('/:id', authenticate, requireRole('admin', 'manager'), async (req, res, next) => {
   try {
-    const body = updateSchema.parse(req.body);
-    const product = await productRepo.update(req.params['id']!, body);
+    const id = z.string().uuid().parse(req.params['id']);
+    const body = updateProductSchema.parse(req.body);
+    const product = await productRepo.update(id, body);
     if (!product) throw new NotFoundError('Product');
     if (features.domainEvents()) {
       eventBus.emit({
@@ -123,11 +111,12 @@ router.patch('/:id', authenticate, requireRole('admin', 'manager'), async (req, 
 
 router.delete('/:id', authenticate, requireRole('admin'), async (req, res, next) => {
   try {
-    const ok = await productRepo.remove(req.params['id']!);
+    const id = z.string().uuid().parse(req.params['id']);
+    const ok = await productRepo.remove(id);
     if (!ok) throw new NotFoundError('Product');
     await auditRepo.writeAudit({
       entityType: 'product',
-      entityId: req.params['id'],
+      entityId: id,
       action: 'deleted',
       actorId: req.user!.sub,
     });
