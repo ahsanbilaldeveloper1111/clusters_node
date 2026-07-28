@@ -16,6 +16,9 @@ import {
   orderSchema,
   aiInsightSchema,
   aiInsightResponseSchema,
+  aiSummarizeSchema,
+  aiRecommendSchema,
+  aiRecommendResponseSchema,
   errorSchema,
   dataWrapper,
 } from './schemas.js';
@@ -298,7 +301,7 @@ registry.registerPath({
   method: 'post',
   path: '/api/ai/insights',
   tags: ['AI'],
-  summary: 'Ask business questions grounded in live order/product data',
+  summary: 'Multi-turn LLM chat grounded in live order/product data',
   security: [{ bearerAuth: [] }],
   request: {
     body: { content: { 'application/json': { schema: aiInsightSchema } } },
@@ -307,6 +310,40 @@ registry.registerPath({
     200: {
       description: 'AI insight (openai or demo mode)',
       content: { 'application/json': { schema: dataWrapper(aiInsightResponseSchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/ai/summarize',
+  tags: ['AI'],
+  summary: 'LLM summary of orders or product catalog',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: { content: { 'application/json': { schema: aiSummarizeSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Summary (openai or demo mode)',
+      content: { 'application/json': { schema: dataWrapper(aiInsightResponseSchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/ai/recommend',
+  tags: ['AI'],
+  summary: 'LLM product recommendations from catalog/stock data',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: { content: { 'application/json': { schema: aiRecommendSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Recommendations (openai or demo mode)',
+      content: { 'application/json': { schema: dataWrapper(aiRecommendResponseSchema) } },
     },
   },
 });

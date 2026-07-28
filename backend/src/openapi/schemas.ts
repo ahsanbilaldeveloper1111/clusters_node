@@ -107,10 +107,18 @@ export const orderSchema = z
   })
   .openapi('Order');
 
+export const aiChatMessageSchema = z
+  .object({
+    role: z.enum(['user', 'assistant', 'system']),
+    content: z.string().min(1).max(2000),
+  })
+  .openapi('AiChatMessage');
+
 export const aiInsightSchema = z
   .object({
     question: z.string().min(3).max(2000).openapi({ example: 'Which categories drive revenue?' }),
     context: z.enum(['orders', 'products', 'general']).optional(),
+    history: z.array(aiChatMessageSchema).max(10).optional(),
   })
   .openapi('AiInsightRequest');
 
@@ -121,8 +129,39 @@ export const aiInsightResponseSchema = z
     model: z.string(),
     sources: z.array(z.string()),
     generatedAt: z.string(),
+    context: z.enum(['orders', 'products', 'general']),
   })
   .openapi('AiInsightResponse');
+
+export const aiSummarizeSchema = z
+  .object({
+    target: z.enum(['orders', 'products', 'catalog']).openapi({ example: 'orders' }),
+  })
+  .openapi('AiSummarizeRequest');
+
+export const aiRecommendSchema = z
+  .object({
+    limit: z.number().int().min(1).max(10).optional().openapi({ example: 5 }),
+    focus: z.string().min(2).max(200).optional().openapi({ example: 'low stock electronics' }),
+  })
+  .openapi('AiRecommendRequest');
+
+export const aiRecommendResponseSchema = z
+  .object({
+    recommendations: z.array(
+      z.object({
+        productId: z.string(),
+        name: z.string(),
+        category: z.string(),
+        stock: z.number(),
+        reason: z.string(),
+      })
+    ),
+    mode: z.enum(['openai', 'demo']),
+    model: z.string(),
+    generatedAt: z.string(),
+  })
+  .openapi('AiRecommendResponse');
 
 export const errorSchema = z
   .object({

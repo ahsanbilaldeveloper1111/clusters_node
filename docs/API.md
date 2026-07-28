@@ -61,10 +61,16 @@ Revokes the refresh token server-side.
 
 ### POST `/ai/insights`
 
+Multi-turn chat grounded in live SQL. Optional `history` (last 10 turns) and `context`.
+
 ```json
 {
   "question": "Which categories drive the most revenue?",
-  "context": "general"
+  "context": "general",
+  "history": [
+    { "role": "user", "content": "How many orders?" },
+    { "role": "assistant", "content": "..." }
+  ]
 }
 ```
 
@@ -77,12 +83,29 @@ Revokes the refresh token server-side.
     "mode": "demo",
     "model": "rule-based-demo",
     "sources": ["orders", "products"],
+    "context": "general",
     "generatedAt": "2026-..."
   }
 }
 ```
 
-Set `OPENAI_API_KEY` on the API for `mode: "openai"`.
+### POST `/ai/summarize`
+
+```json
+{ "target": "orders" }
+```
+
+`target`: `orders` | `products` | `catalog`
+
+### POST `/ai/recommend`
+
+```json
+{ "limit": 5, "focus": "low stock electronics" }
+```
+
+Returns `{ recommendations: [{ productId, name, category, stock, reason }], mode, model, generatedAt }`.
+
+Set `OPENAI_API_KEY` on the API for `mode: "openai"` (circuit breaker falls back to demo).
 
 ## Products
 

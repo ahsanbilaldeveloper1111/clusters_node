@@ -134,6 +134,16 @@ Managers/admins ask natural-language questions such as:
 
 The API answers using **live aggregates** from orders and products (not fake static text).
 
+### Capabilities
+
+| Feature | Endpoint | What it does |
+|---------|----------|--------------|
+| **Multi-turn chat** | `POST /api/ai/insights` | Question + optional `history` + `context` (`orders` / `products` / `general`) |
+| **Summarize** | `POST /api/ai/summarize` | Executive summary of orders or catalog |
+| **Recommend** | `POST /api/ai/recommend` | Product recommendations from stock/catalog data |
+| **Provider strategy** | `DemoAiProvider` / `OpenAiProvider` | Swappable LLM backends |
+| **Circuit fallback** | `aiCircuit` | OpenAI failures/open breaker → demo mode |
+
 ### Two modes
 
 | Mode | When | Behavior |
@@ -145,8 +155,8 @@ The API answers using **live aggregates** from orders and products (not fake sta
 
 Shows you can integrate AI **safely** (auth + RBAC + data grounding + optional circuit breaker fallback), not only call an API.
 
-- **API:** `POST /api/ai/insights`
-- **UI:** **AI Assistant** page
+- **API:** `POST /api/ai/insights`, `/api/ai/summarize`, `/api/ai/recommend`
+- **UI:** **AI Assistant** page (Chat / Summarize / Recommend tabs)
 
 ---
 
