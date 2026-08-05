@@ -41,6 +41,52 @@ const envSchema = z.object({
     .union([z.boolean(), z.string()])
     .default(true)
     .transform((v) => (typeof v === 'boolean' ? v : v !== 'false' && v !== '0')),
+  FEATURE_OUTBOX: z
+    .union([z.boolean(), z.string()])
+    .default(true)
+    .transform((v) => (typeof v === 'boolean' ? v : v !== 'false' && v !== '0')),
+  FEATURE_WEBHOOKS: z
+    .union([z.boolean(), z.string()])
+    .default(true)
+    .transform((v) => (typeof v === 'boolean' ? v : v !== 'false' && v !== '0')),
+  FEATURE_MFA: z
+    .union([z.boolean(), z.string()])
+    .default(true)
+    .transform((v) => (typeof v === 'boolean' ? v : v !== 'false' && v !== '0')),
+  CORS_ORIGINS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      v
+        ? v
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : undefined
+    ),
+  WEBHOOK_URL: z
+    .string()
+    .optional()
+    .transform((v) => {
+      if (!v) return undefined;
+      try {
+        // eslint-disable-next-line no-new
+        new URL(v);
+        return v;
+      } catch {
+        return undefined;
+      }
+    }),
+  WEBHOOK_SECRET: z
+    .string()
+    .optional()
+    .transform((v) => (v && v.length >= 16 ? v : undefined)),
+  OTEL_ENABLED: z
+    .union([z.boolean(), z.string()])
+    .default(false)
+    .transform((v) => (typeof v === 'boolean' ? v : v === 'true' || v === '1')),
+  OTEL_SERVICE_NAME: z.string().default('enterprise-backend'),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().default('http://localhost:4318/v1/traces'),
 });
 
 const parsed = envSchema.safeParse(process.env);

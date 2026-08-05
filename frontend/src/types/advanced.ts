@@ -47,8 +47,8 @@ export type RolePermissions = {
 };
 
 export const PERMISSIONS: RolePermissions = {
-  admin: ['analytics', 'orders', 'products', 'system', 'ai', 'audit'],
-  manager: ['analytics', 'orders', 'products', 'ai', 'audit'],
+  admin: ['analytics', 'orders', 'products', 'system', 'ai', 'ml', 'audit'],
+  manager: ['analytics', 'orders', 'products', 'ai', 'ml', 'audit'],
   customer: ['orders', 'products'],
 } as const;
 

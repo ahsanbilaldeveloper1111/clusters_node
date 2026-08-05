@@ -6,6 +6,7 @@ import ProductsPage from './pages/ProductsPage.js';
 import OrdersPage from './pages/OrdersPage.js';
 import AnalyticsPage from './pages/AnalyticsPage.js';
 import AiAssistantPage from './pages/AiAssistantPage.js';
+import MlLabPage from './pages/MlLabPage.js';
 import AuditPage from './pages/AuditPage.js';
 import SystemPage from './pages/SystemPage.js';
 
@@ -25,6 +26,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     { to: '/orders', label: 'Orders' },
     ...(can('analytics') ? [{ to: '/analytics', label: 'Analytics' }] : []),
     ...(can('ai') ? [{ to: '/ai', label: 'AI Assistant' }] : []),
+    ...(can('ml') ? [{ to: '/ml', label: 'ML Lab' }] : []),
     ...(can('audit') ? [{ to: '/audit', label: 'Audit' }] : []),
     ...(can('system') ? [{ to: '/system', label: 'System' }] : []),
   ];
@@ -79,6 +81,7 @@ export default function App() {
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/analytics" element={<AnalyticsPage />} />
                 <Route path="/ai" element={<AiAssistantPage />} />
+                <Route path="/ml" element={<MlLabPage />} />
                 <Route path="/audit" element={<AuditPage />} />
                 <Route path="/system" element={<SystemPage />} />
               </Routes>

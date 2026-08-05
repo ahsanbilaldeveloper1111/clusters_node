@@ -125,6 +125,8 @@ For design-pattern file paths, see [ADVANCED_CONCEPTS.md](ADVANCED_CONCEPTS.md).
 
 ## 4. AI business assistant
 
+> **Learning guide:** For a beginner-friendly, file-by-file explanation of AI + ML in this repo, read **[LEARN_AI_ML.md](LEARN_AI_ML.md)**. Practice on UI routes `/ai` (LLM assistant) and `/ml` (from-scratch ML lab).
+
 ### What it does
 
 Managers/admins ask natural-language questions such as:

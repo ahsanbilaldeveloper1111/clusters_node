@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { verifyToken, type TokenPayload } from '../services/auth.service.js';
-import { UnauthorizedError } from '../utils/errors.js';
+import { UnauthorizedError, ForbiddenError } from '../utils/errors.js';
 
 declare global {
   namespace Express {
@@ -10,21 +10,28 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, _res: Response, next: NextFunction): void {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    next(new UnauthorizedError('Missing bearer token'));
-    return;
+export async function authenticate(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  try {
+    const header = req.headers.authorization;
+    if (!header?.startsWith('Bearer ')) {
+      throw new UnauthorizedError('Missing bearer token');
+    }
+    const token = header.slice(7);
+    req.user = await verifyToken(token);
+    next();
+  } catch (err) {
+    next(err);
   }
-  const token = header.slice(7);
-  req.user = verifyToken(token);
-  next();
 }
 
 export function requireRole(...roles: string[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
-    if (!req.user || !roles.includes(req.user.role)) {
-      next(new UnauthorizedError('Insufficient permissions'));
+    if (!req.user) {
+      next(new UnauthorizedError());
+      return;
+    }
+    if (!roles.includes(req.user.role)) {
+      next(new ForbiddenError('Insufficient role'));
       return;
     }
     next();

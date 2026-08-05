@@ -132,6 +132,10 @@ Details: [docs/CI_CD.md](docs/CI_CD.md)
 ## Documentation
 
 - **[Features explained (start here)](docs/FEATURES.md)** — what each feature does and how to demo it
+- **[Interview explanation (practice out loud)](docs/INTERVIEW_EXPLANATION.md)** — what to say for architecture, security, DevOps, AI
+- **[Hiring: Principal / Architect / DevOps](docs/HIRING_PRINCIPAL_ARCHITECT_DEVOPS.md)** — stack matrix + interview demos
+- **[Security development (latest)](docs/SECURITY_DEVELOPMENT.md)** — MFA, SSRF, DevSecOps CI, OWASP map
+- **[Learn AI & ML (detailed)](docs/LEARN_AI_ML.md)** — beginner guide to AI assistant + from-scratch ML lab
 - **[Demo script for interviews](docs/DEMO.md)**
 - [Advanced concepts (patterns map)](docs/ADVANCED_CONCEPTS.md)
 - [OpenAPI / Swagger (Zod-generated)](docs/OPENAPI.md)

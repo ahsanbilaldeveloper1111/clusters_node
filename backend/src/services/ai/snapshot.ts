@@ -3,15 +3,31 @@ import { query } from '../../database/pool.js';
 import type { AiContext, BusinessSnapshot } from './types.js';
 
 export async function buildBusinessSnapshot(context: AiContext = 'general'): Promise<BusinessSnapshot> {
-  const [{ rows: orderStats }, salesByCategory, { rows: stockRows }] = await Promise.all([
-    query<{ total_orders: string; total_revenue: string }>(`
+  const [
+    { rows: orderStats },
+    salesByCategory,
+    { rows: stockRows },
+    { rows: statusRows },
+    { rows: productCountRows },
+  ] = await Promise.all([
+    query<{ total_orders: string; total_revenue: string; aov: string }>(`
       SELECT COUNT(*)::text AS total_orders,
-             COALESCE(SUM(total_amount), 0)::text AS total_revenue
+             COALESCE(SUM(total_amount), 0)::text AS total_revenue,
+             COALESCE(AVG(total_amount), 0)::text AS aov
       FROM orders WHERE status NOT IN ('cancelled')
     `),
     getSalesByCategory(),
     query<{ low_stock: string }>(`
       SELECT COUNT(*)::text AS low_stock FROM products WHERE stock < 10
+    `),
+    query<{ status: string; count: string }>(`
+      SELECT status, COUNT(*)::text AS count
+      FROM orders
+      GROUP BY status
+      ORDER BY count DESC
+    `),
+    query<{ product_count: string }>(`
+      SELECT COUNT(*)::text AS product_count FROM products
     `),
   ]);
 
@@ -19,6 +35,12 @@ export async function buildBusinessSnapshot(context: AiContext = 'general'): Pro
     context,
     totalOrders: Number(orderStats[0]?.total_orders ?? 0),
     totalRevenue: orderStats[0]?.total_revenue ?? '0',
+    averageOrderValue: Number(orderStats[0]?.aov ?? 0).toFixed(2),
+    productCount: Number(productCountRows[0]?.product_count ?? 0),
+    ordersByStatus: statusRows.map((r) => ({
+      status: r.status,
+      count: Number(r.count),
+    })),
     topCategories: salesByCategory.slice(0, 5).map((c) => ({
       category: c.category,
       revenue: c.revenue,

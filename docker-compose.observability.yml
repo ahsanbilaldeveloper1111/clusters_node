@@ -1,0 +1,59 @@
+# Optional observability stack: Prometheus + Grafana + Jaeger (OTLP traces)
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+#
+# Grafana:      http://localhost:3001  (admin / admin)
+# Prometheus:   http://localhost:9090
+# Jaeger UI:    http://localhost:16686
+# OTLP HTTP:    http://localhost:4318
+
+services:
+  backend:
+    environment:
+      OTEL_ENABLED: "true"
+      OTEL_SERVICE_NAME: enterprise-backend
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      FEATURE_OUTBOX: "true"
+      FEATURE_WEBHOOKS: "true"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: enterprise_prometheus
+    restart: unless-stopped
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    container_name: enterprise_jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: enterprise_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - jaeger
+
+volumes:
+  grafana_data:

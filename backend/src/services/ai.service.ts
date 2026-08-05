@@ -1,5 +1,13 @@
 import { BadRequestError } from '../utils/errors.js';
-import { buildDemoAnswer, buildDemoRecommendations, buildDemoSummary } from './ai/ai-provider.js';
+import {
+  buildDemoAnswer,
+  buildDemoRecommendations,
+  buildDemoSummary,
+  demoEnterpriseActions,
+  demoEnterpriseBriefing,
+  demoEnterpriseRisks,
+} from './ai/ai-provider.js';
+import { ENTERPRISE_INDUSTRIES } from './ai/industries.js';
 import { resolveAiProvider } from './ai/openai-provider.js';
 import { buildBusinessSnapshot, snapshotSources } from './ai/snapshot.js';
 import type {
@@ -10,6 +18,13 @@ import type {
   AiRecommendResponse,
   AiSummarizeRequest,
   ChatMessage,
+  EnterpriseActionsRequest,
+  EnterpriseActionsResponse,
+  EnterpriseBriefingRequest,
+  EnterpriseBriefingResponse,
+  EnterpriseIndustry,
+  EnterpriseRisksRequest,
+  EnterpriseRisksResponse,
 } from './ai/types.js';
 
 export type {
@@ -19,7 +34,23 @@ export type {
   AiRecommendResponse,
   AiSummarizeRequest,
   ChatMessage,
+  EnterpriseActionsRequest,
+  EnterpriseActionsResponse,
+  EnterpriseBriefingRequest,
+  EnterpriseBriefingResponse,
+  EnterpriseIndustry,
+  EnterpriseRisksRequest,
+  EnterpriseRisksResponse,
 } from './ai/types.js';
+
+function assertIndustry(industry: string): EnterpriseIndustry {
+  if ((ENTERPRISE_INDUSTRIES as string[]).includes(industry)) {
+    return industry as EnterpriseIndustry;
+  }
+  throw new BadRequestError(
+    `Invalid industry. Expected one of: ${ENTERPRISE_INDUSTRIES.join(', ')}`
+  );
+}
 
 function normalizeHistory(history?: ChatMessage[]): ChatMessage[] {
   if (!history?.length) return [];
@@ -50,6 +81,38 @@ async function withCircuitFallback<T>(
     }
     throw e;
   }
+}
+
+/** Portfolio demo: provider mode, circuit state, and live DB grounding snapshot. */
+export async function getAiStatus(context: AiContext = 'general') {
+  const { features } = await import('../config/features.js');
+  const { env } = await import('../config/env.js');
+  const { aiCircuit } = await import('../lib/circuit-breaker.js');
+  const provider = resolveAiProvider();
+  const snapshot = await buildBusinessSnapshot(context);
+  const sources = snapshotSources(context);
+
+  return {
+    enabled: features.aiInsights(),
+    mode: provider.mode,
+    provider: provider.name,
+    model: provider.mode === 'openai' ? env.OPENAI_MODEL : 'rule-based-demo',
+    circuitBreaker: features.circuitBreaker()
+      ? aiCircuit.getStatus()
+      : { name: 'openai', state: 'disabled' as const, failures: 0 },
+    pipeline: [
+      'Authenticate + RBAC (admin/manager)',
+      'Build BusinessSnapshot from PostgreSQL',
+      'Resolve provider (OpenAI if key set, else demo)',
+      'Circuit breaker wraps OpenAI; falls back to demo on open',
+      'Enterprise verticals: retail, supply_chain, finance, operations',
+      'Return grounded answer + sources',
+    ],
+    industries: ENTERPRISE_INDUSTRIES,
+    sources,
+    snapshot,
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 export async function generateInsight(req: AiInsightRequest): Promise<AiInsightResponse> {
@@ -155,4 +218,97 @@ export async function recommendProducts(req: AiRecommendRequest): Promise<AiReco
   }
 
   return provider.recommend(snapshot, limit, req.focus);
+}
+
+export async function enterpriseBriefing(
+  req: EnterpriseBriefingRequest
+): Promise<EnterpriseBriefingResponse> {
+  const { features } = await import('../config/features.js');
+  if (!features.aiInsights()) {
+    throw new BadRequestError('AI insights feature is disabled');
+  }
+
+  const industry = assertIndustry(req.industry);
+  const snapshot = await buildBusinessSnapshot('general');
+  const sources = snapshotSources('general');
+  const provider = resolveAiProvider();
+
+  let result: EnterpriseBriefingResponse;
+  if (provider.mode === 'openai') {
+    result = await withCircuitFallback(
+      () => provider.enterpriseBriefing(industry, snapshot, req.focus),
+      async () => {
+        const fallback = demoEnterpriseBriefing(industry, snapshot, req.focus);
+        return {
+          ...fallback,
+          model: 'rule-based-demo-fallback',
+          summary: `${fallback.summary} (OpenAI circuit open — fell back to demo mode)`,
+        };
+      }
+    );
+  } else {
+    result = await provider.enterpriseBriefing(industry, snapshot, req.focus);
+  }
+
+  return { ...result, sources: result.sources.length ? result.sources : sources };
+}
+
+export async function enterpriseRisks(
+  req: EnterpriseRisksRequest
+): Promise<EnterpriseRisksResponse> {
+  const { features } = await import('../config/features.js');
+  if (!features.aiInsights()) {
+    throw new BadRequestError('AI insights feature is disabled');
+  }
+
+  const industry = assertIndustry(req.industry);
+  const limit = Math.min(Math.max(req.limit ?? 8, 1), 15);
+  const snapshot = await buildBusinessSnapshot('general');
+  const sources = snapshotSources('general');
+  const provider = resolveAiProvider();
+
+  let result: EnterpriseRisksResponse;
+  if (provider.mode === 'openai') {
+    result = await withCircuitFallback(
+      () => provider.enterpriseRisks(industry, snapshot, limit),
+      async () => ({
+        ...demoEnterpriseRisks(industry, snapshot, limit),
+        model: 'rule-based-demo-fallback',
+      })
+    );
+  } else {
+    result = await provider.enterpriseRisks(industry, snapshot, limit);
+  }
+
+  return { ...result, sources: result.sources.length ? result.sources : sources };
+}
+
+export async function enterpriseActions(
+  req: EnterpriseActionsRequest
+): Promise<EnterpriseActionsResponse> {
+  const { features } = await import('../config/features.js');
+  if (!features.aiInsights()) {
+    throw new BadRequestError('AI insights feature is disabled');
+  }
+
+  const industry = assertIndustry(req.industry);
+  const limit = Math.min(Math.max(req.limit ?? 5, 1), 10);
+  const snapshot = await buildBusinessSnapshot('general');
+  const sources = snapshotSources('general');
+  const provider = resolveAiProvider();
+
+  let result: EnterpriseActionsResponse;
+  if (provider.mode === 'openai') {
+    result = await withCircuitFallback(
+      () => provider.enterpriseActions(industry, snapshot, limit, req.focus),
+      async () => ({
+        ...demoEnterpriseActions(industry, snapshot, limit, req.focus),
+        model: 'rule-based-demo-fallback',
+      })
+    );
+  } else {
+    result = await provider.enterpriseActions(industry, snapshot, limit, req.focus);
+  }
+
+  return { ...result, sources: result.sources.length ? result.sources : sources };
 }

@@ -3,15 +3,128 @@ import {
   buildDemoAnswer,
   buildDemoRecommendations,
   buildDemoSummary,
+  demoEnterpriseActions,
+  demoEnterpriseBriefing,
+  demoEnterpriseRisks,
   type AiProvider,
 } from './ai-provider.js';
+import {
+  buildEnterpriseActions,
+  buildEnterpriseBriefing,
+  buildEnterpriseRisks,
+} from './enterprise.js';
+import { getIndustryPlaybook } from './industries.js';
+import { snapshotSources } from './snapshot.js';
 import type {
   AiInsightRequest,
   AiInsightResponse,
   AiRecommendResponse,
   BusinessSnapshot,
   ChatMessage,
+  EnterpriseActionItem,
+  EnterpriseActionsResponse,
+  EnterpriseBriefingResponse,
+  EnterpriseIndustry,
+  EnterpriseKpi,
+  EnterpriseRiskItem,
+  EnterpriseRisksResponse,
+  RiskSeverity,
 } from './types.js';
+
+function stripJsonFence(raw: string): string {
+  return raw.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+}
+
+function isSeverity(v: unknown): v is RiskSeverity {
+  return v === 'critical' || v === 'high' || v === 'medium' || v === 'low';
+}
+
+function parseRisks(raw: string, limit: number): EnterpriseRiskItem[] {
+  const parsed = JSON.parse(stripJsonFence(raw)) as unknown;
+  const list = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === 'object' && Array.isArray((parsed as { risks?: unknown }).risks)
+      ? (parsed as { risks: unknown[] }).risks
+      : [];
+
+  return list
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+    .map((x, i) => ({
+      id: String(x.id ?? `risk-${i + 1}`),
+      title: String(x.title ?? ''),
+      severity: isSeverity(x.severity) ? x.severity : 'medium',
+      category: String(x.category ?? 'general'),
+      evidence: String(x.evidence ?? ''),
+      recommendation: String(x.recommendation ?? ''),
+    }))
+    .filter((x) => x.title)
+    .slice(0, limit);
+}
+
+function parseActions(raw: string, limit: number): EnterpriseActionItem[] {
+  const parsed = JSON.parse(stripJsonFence(raw)) as unknown;
+  const list = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === 'object' && Array.isArray((parsed as { actions?: unknown }).actions)
+      ? (parsed as { actions: unknown[] }).actions
+      : [];
+
+  return list
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+    .map((x, i) => ({
+      id: String(x.id ?? `act-${i + 1}`),
+      priority: Number(x.priority ?? i + 1),
+      owner: String(x.owner ?? 'Ops'),
+      title: String(x.title ?? ''),
+      rationale: String(x.rationale ?? ''),
+      timeframe: String(x.timeframe ?? 'This week'),
+    }))
+    .filter((x) => x.title)
+    .slice(0, limit);
+}
+
+function parseBriefing(
+  raw: string,
+  industry: EnterpriseIndustry,
+  snapshot: BusinessSnapshot,
+  focus?: string
+): Omit<EnterpriseBriefingResponse, 'mode' | 'model' | 'sources' | 'generatedAt'> {
+  const fallback = buildEnterpriseBriefing(industry, snapshot, focus);
+  try {
+    const parsed = JSON.parse(stripJsonFence(raw)) as Record<string, unknown>;
+    const kpis = Array.isArray(parsed.kpis)
+      ? (parsed.kpis as Record<string, unknown>[])
+          .filter((x) => x && typeof x === 'object')
+          .map(
+            (x): EnterpriseKpi => ({
+              label: String(x.label ?? ''),
+              value: String(x.value ?? ''),
+              unit: x.unit != null ? String(x.unit) : undefined,
+              trendHint: x.trendHint != null ? String(x.trendHint) : undefined,
+            })
+          )
+          .filter((x) => x.label)
+      : fallback.kpis;
+
+    const risksParsed = Array.isArray(parsed.risks)
+      ? parseRisks(JSON.stringify(parsed.risks), 5)
+      : [];
+    const actionsParsed = Array.isArray(parsed.actions)
+      ? parseActions(JSON.stringify(parsed.actions), 5)
+      : [];
+
+    return {
+      industry,
+      headline: String(parsed.headline ?? fallback.headline),
+      summary: String(parsed.summary ?? fallback.summary),
+      kpis: kpis.length ? kpis : fallback.kpis,
+      risks: risksParsed.length ? risksParsed : fallback.risks,
+      actions: actionsParsed.length ? actionsParsed : fallback.actions,
+    };
+  } catch {
+    return fallback;
+  }
+}
 
 export class DemoAiProvider implements AiProvider {
   readonly name = 'demo';
@@ -54,6 +167,31 @@ export class DemoAiProvider implements AiProvider {
       model: 'rule-based-demo',
       generatedAt: new Date().toISOString(),
     };
+  }
+
+  async enterpriseBriefing(
+    industry: EnterpriseIndustry,
+    snapshot: BusinessSnapshot,
+    focus?: string
+  ): Promise<EnterpriseBriefingResponse> {
+    return demoEnterpriseBriefing(industry, snapshot, focus);
+  }
+
+  async enterpriseRisks(
+    industry: EnterpriseIndustry,
+    snapshot: BusinessSnapshot,
+    limit: number
+  ): Promise<EnterpriseRisksResponse> {
+    return demoEnterpriseRisks(industry, snapshot, limit);
+  }
+
+  async enterpriseActions(
+    industry: EnterpriseIndustry,
+    snapshot: BusinessSnapshot,
+    limit: number,
+    focus?: string
+  ): Promise<EnterpriseActionsResponse> {
+    return demoEnterpriseActions(industry, snapshot, limit, focus);
   }
 }
 
@@ -177,7 +315,7 @@ export class OpenAiProvider implements AiProvider {
 
     let recommendations: AiRecommendResponse['recommendations'] = [];
     try {
-      const cleaned = raw.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+      const cleaned = stripJsonFence(raw);
       const parsed = JSON.parse(cleaned) as unknown;
       if (Array.isArray(parsed)) {
         recommendations = parsed
@@ -204,6 +342,128 @@ export class OpenAiProvider implements AiProvider {
       recommendations,
       mode: 'openai',
       model: env.OPENAI_MODEL,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  async enterpriseBriefing(
+    industry: EnterpriseIndustry,
+    snapshot: BusinessSnapshot,
+    focus?: string
+  ): Promise<EnterpriseBriefingResponse> {
+    const playbook = getIndustryPlaybook(industry);
+    const raw = await this.complete(
+      [
+        {
+          role: 'system',
+          content:
+            `You are briefing a ${playbook.persona} in ${playbook.label}. ${playbook.systemPromptExtra} ` +
+            'Use ONLY the provided business JSON. Do not invent numbers. ' +
+            'Return ONLY valid JSON object with keys: headline, summary, kpis, risks, actions. ' +
+            'kpis: [{label,value,unit?,trendHint?}]. ' +
+            'risks: [{id,title,severity(critical|high|medium|low),category,evidence,recommendation}]. ' +
+            'actions: [{id,priority,owner,title,rationale,timeframe}]. No markdown.',
+        },
+        {
+          role: 'user',
+          content: `Industry=${industry}. Focus areas=${playbook.focusAreas.join(', ')}.${
+            focus ? ` Extra focus: ${focus}.` : ''
+          }\nData:\n${JSON.stringify(snapshot, null, 2)}`,
+        },
+      ],
+      1200
+    );
+
+    const parsed = parseBriefing(raw, industry, snapshot, focus);
+    return {
+      ...parsed,
+      mode: 'openai',
+      model: env.OPENAI_MODEL,
+      sources: snapshotSources('general'),
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  async enterpriseRisks(
+    industry: EnterpriseIndustry,
+    snapshot: BusinessSnapshot,
+    limit: number
+  ): Promise<EnterpriseRisksResponse> {
+    const playbook = getIndustryPlaybook(industry);
+    const raw = await this.complete(
+      [
+        {
+          role: 'system',
+          content:
+            `You are a ${playbook.persona} risk analyst for ${playbook.label}. ${playbook.systemPromptExtra} ` +
+            'Return ONLY a JSON array of risks: ' +
+            '[{id,title,severity(critical|high|medium|low),category,evidence,recommendation}]. ' +
+            'Use only evidence from the JSON. No markdown.',
+        },
+        {
+          role: 'user',
+          content: `Produce up to ${limit} risks for industry=${industry}.\nData:\n${JSON.stringify(snapshot, null, 2)}`,
+        },
+      ],
+      900
+    );
+
+    let risks: EnterpriseRiskItem[] = [];
+    try {
+      risks = parseRisks(raw, limit);
+    } catch {
+      risks = buildEnterpriseRisks(industry, snapshot, limit);
+    }
+    if (!risks.length) risks = buildEnterpriseRisks(industry, snapshot, limit);
+
+    return {
+      industry,
+      risks,
+      mode: 'openai',
+      model: env.OPENAI_MODEL,
+      sources: snapshotSources('general'),
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  async enterpriseActions(
+    industry: EnterpriseIndustry,
+    snapshot: BusinessSnapshot,
+    limit: number,
+    focus?: string
+  ): Promise<EnterpriseActionsResponse> {
+    const playbook = getIndustryPlaybook(industry);
+    const raw = await this.complete(
+      [
+        {
+          role: 'system',
+          content:
+            `You build an action plan for a ${playbook.persona} in ${playbook.label}. ${playbook.systemPromptExtra} ` +
+            'Return ONLY a JSON array: [{id,priority,owner,title,rationale,timeframe}]. ' +
+            `Prefer owners from: ${Object.values(playbook.owners).join(', ')}. No markdown.`,
+        },
+        {
+          role: 'user',
+          content: `Up to ${limit} actions for industry=${industry}${focus ? `, focus=${focus}` : ''}.\nData:\n${JSON.stringify(snapshot, null, 2)}`,
+        },
+      ],
+      900
+    );
+
+    let actions: EnterpriseActionItem[] = [];
+    try {
+      actions = parseActions(raw, limit);
+    } catch {
+      actions = buildEnterpriseActions(industry, snapshot, limit, focus);
+    }
+    if (!actions.length) actions = buildEnterpriseActions(industry, snapshot, limit, focus);
+
+    return {
+      industry,
+      actions,
+      mode: 'openai',
+      model: env.OPENAI_MODEL,
+      sources: snapshotSources('general'),
       generatedAt: new Date().toISOString(),
     };
   }

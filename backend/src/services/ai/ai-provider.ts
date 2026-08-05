@@ -1,9 +1,19 @@
+import {
+  buildEnterpriseActions,
+  buildEnterpriseBriefing,
+  buildEnterpriseRisks,
+} from './enterprise.js';
+import { snapshotSources } from './snapshot.js';
 import type {
   AiInsightRequest,
   AiInsightResponse,
   AiRecommendResponse,
   BusinessSnapshot,
   ChatMessage,
+  EnterpriseActionsResponse,
+  EnterpriseBriefingResponse,
+  EnterpriseIndustry,
+  EnterpriseRisksResponse,
   ProductRecommendation,
 } from './types.js';
 
@@ -17,6 +27,68 @@ export interface AiProvider {
   ): Promise<AiInsightResponse>;
   summarize(target: string, snapshot: BusinessSnapshot): Promise<AiInsightResponse>;
   recommend(snapshot: BusinessSnapshot, limit: number, focus?: string): Promise<AiRecommendResponse>;
+  enterpriseBriefing(
+    industry: EnterpriseIndustry,
+    snapshot: BusinessSnapshot,
+    focus?: string
+  ): Promise<EnterpriseBriefingResponse>;
+  enterpriseRisks(
+    industry: EnterpriseIndustry,
+    snapshot: BusinessSnapshot,
+    limit: number
+  ): Promise<EnterpriseRisksResponse>;
+  enterpriseActions(
+    industry: EnterpriseIndustry,
+    snapshot: BusinessSnapshot,
+    limit: number,
+    focus?: string
+  ): Promise<EnterpriseActionsResponse>;
+}
+
+export function demoEnterpriseBriefing(
+  industry: EnterpriseIndustry,
+  snapshot: BusinessSnapshot,
+  focus?: string
+): EnterpriseBriefingResponse {
+  const core = buildEnterpriseBriefing(industry, snapshot, focus);
+  return {
+    ...core,
+    mode: 'demo',
+    model: 'rule-based-demo',
+    sources: snapshotSources('general'),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+export function demoEnterpriseRisks(
+  industry: EnterpriseIndustry,
+  snapshot: BusinessSnapshot,
+  limit: number
+): EnterpriseRisksResponse {
+  return {
+    industry,
+    risks: buildEnterpriseRisks(industry, snapshot, limit),
+    mode: 'demo',
+    model: 'rule-based-demo',
+    sources: snapshotSources('general'),
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+export function demoEnterpriseActions(
+  industry: EnterpriseIndustry,
+  snapshot: BusinessSnapshot,
+  limit: number,
+  focus?: string
+): EnterpriseActionsResponse {
+  return {
+    industry,
+    actions: buildEnterpriseActions(industry, snapshot, limit, focus),
+    mode: 'demo',
+    model: 'rule-based-demo',
+    sources: snapshotSources('general'),
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 export function buildDemoAnswer(question: string, snapshot: BusinessSnapshot): string {

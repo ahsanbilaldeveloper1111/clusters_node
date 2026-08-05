@@ -62,6 +62,24 @@ export async function createOrder(
       order.id,
     ]);
 
+    // Transactional outbox — same TX as the order write (no dual-write gap)
+    const { features } = await import('../../config/features.js');
+    if (features.outbox()) {
+      const { insertOutboxEvent } = await import('../../messaging/outbox.js');
+      await insertOutboxEvent(client, {
+        aggregateType: 'order',
+        aggregateId: order.id,
+        eventType: 'OrderCreated',
+        payload: {
+          orderId: order.id,
+          userId,
+          total,
+          status: 'processing',
+          itemCount: items.length,
+        },
+      });
+    }
+
     order.total_amount = String(total);
     order.status = 'processing';
     return order;
@@ -101,6 +119,21 @@ export async function cancelOrder(orderId: string, actorId: string, isAdmin: boo
        RETURNING id, user_id, status, total_amount, created_at`,
       [orderId]
     );
+
+    const { features } = await import('../../config/features.js');
+    if (features.outbox()) {
+      const { insertOutboxEvent } = await import('../../messaging/outbox.js');
+      await insertOutboxEvent(client, {
+        aggregateType: 'order',
+        aggregateId: orderId,
+        eventType: 'OrderCancelled',
+        payload: {
+          orderId,
+          userId: actorId,
+          previousStatus: order.status,
+        },
+      });
+    }
 
     return updated.rows[0]!;
   });

@@ -17,7 +17,7 @@ export const loginSchema = z
 export const registerSchema = z
   .object({
     email: z.string().email(),
-    password: z.string().min(8).max(128),
+    password: z.string().min(10).max(128),
     fullName: z.string().min(2).max(200),
   })
   .openapi('RegisterRequest');
@@ -162,6 +162,133 @@ export const aiRecommendResponseSchema = z
     generatedAt: z.string(),
   })
   .openapi('AiRecommendResponse');
+
+export const enterpriseIndustrySchema = z
+  .enum(['retail', 'supply_chain', 'finance', 'operations'])
+  .openapi('EnterpriseIndustry');
+
+export const enterpriseRiskItemSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    severity: z.enum(['critical', 'high', 'medium', 'low']),
+    category: z.string(),
+    evidence: z.string(),
+    recommendation: z.string(),
+  })
+  .openapi('EnterpriseRiskItem');
+
+export const enterpriseActionItemSchema = z
+  .object({
+    id: z.string(),
+    priority: z.number().int(),
+    owner: z.string(),
+    title: z.string(),
+    rationale: z.string(),
+    timeframe: z.string(),
+  })
+  .openapi('EnterpriseActionItem');
+
+export const enterpriseKpiSchema = z
+  .object({
+    label: z.string(),
+    value: z.string(),
+    unit: z.string().optional(),
+    trendHint: z.string().optional(),
+  })
+  .openapi('EnterpriseKpi');
+
+export const enterpriseBriefingSchema = z
+  .object({
+    industry: enterpriseIndustrySchema.openapi({ example: 'retail' }),
+    focus: z.string().min(2).max(200).optional().openapi({ example: 'stockout risk before promo' }),
+  })
+  .openapi('EnterpriseBriefingRequest');
+
+export const enterpriseBriefingResponseSchema = z
+  .object({
+    industry: enterpriseIndustrySchema,
+    headline: z.string(),
+    summary: z.string(),
+    kpis: z.array(enterpriseKpiSchema),
+    risks: z.array(enterpriseRiskItemSchema),
+    actions: z.array(enterpriseActionItemSchema),
+    mode: z.enum(['openai', 'demo']),
+    model: z.string(),
+    sources: z.array(z.string()),
+    generatedAt: z.string(),
+  })
+  .openapi('EnterpriseBriefingResponse');
+
+export const enterpriseRisksSchema = z
+  .object({
+    industry: enterpriseIndustrySchema,
+    limit: z.number().int().min(1).max(15).optional().openapi({ example: 8 }),
+  })
+  .openapi('EnterpriseRisksRequest');
+
+export const enterpriseRisksResponseSchema = z
+  .object({
+    industry: enterpriseIndustrySchema,
+    risks: z.array(enterpriseRiskItemSchema),
+    mode: z.enum(['openai', 'demo']),
+    model: z.string(),
+    sources: z.array(z.string()),
+    generatedAt: z.string(),
+  })
+  .openapi('EnterpriseRisksResponse');
+
+export const enterpriseActionsSchema = z
+  .object({
+    industry: enterpriseIndustrySchema,
+    limit: z.number().int().min(1).max(10).optional().openapi({ example: 5 }),
+    focus: z.string().min(2).max(200).optional(),
+  })
+  .openapi('EnterpriseActionsRequest');
+
+export const enterpriseActionsResponseSchema = z
+  .object({
+    industry: enterpriseIndustrySchema,
+    actions: z.array(enterpriseActionItemSchema),
+    mode: z.enum(['openai', 'demo']),
+    model: z.string(),
+    sources: z.array(z.string()),
+    generatedAt: z.string(),
+  })
+  .openapi('EnterpriseActionsResponse');
+
+export const mlExperimentSchema = z
+  .object({
+    task: z.enum(['regression', 'classification', 'clustering', 'similarity']).openapi({
+      example: 'regression',
+    }),
+    testRatio: z.number().min(0.15).max(0.4).optional(),
+    epochs: z.number().int().min(50).max(800).optional(),
+    learningRate: z.number().min(0.001).max(0.5).optional(),
+    k: z.number().int().min(2).max(6).optional(),
+    query: z.string().min(2).max(200).optional(),
+    topK: z.number().int().min(1).max(20).optional(),
+  })
+  .openapi('MlExperimentRequest');
+
+export const aiStatusResponseSchema = z
+  .object({
+    enabled: z.boolean(),
+    mode: z.enum(['openai', 'demo']),
+    provider: z.string(),
+    model: z.string(),
+    circuitBreaker: z.object({
+      name: z.string(),
+      state: z.string(),
+      failures: z.number(),
+    }),
+    pipeline: z.array(z.string()),
+    industries: z.array(enterpriseIndustrySchema).optional(),
+    sources: z.array(z.string()),
+    snapshot: z.record(z.string(), z.unknown()),
+    generatedAt: z.string(),
+  })
+  .openapi('AiStatusResponse');
 
 export const errorSchema = z
   .object({

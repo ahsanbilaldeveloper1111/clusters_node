@@ -19,6 +19,14 @@ import {
   aiSummarizeSchema,
   aiRecommendSchema,
   aiRecommendResponseSchema,
+  aiStatusResponseSchema,
+  enterpriseBriefingSchema,
+  enterpriseBriefingResponseSchema,
+  enterpriseRisksSchema,
+  enterpriseRisksResponseSchema,
+  enterpriseActionsSchema,
+  enterpriseActionsResponseSchema,
+  mlExperimentSchema,
   errorSchema,
   dataWrapper,
 } from './schemas.js';
@@ -298,6 +306,25 @@ registry.registerPath({
 });
 
 registry.registerPath({
+  method: 'get',
+  path: '/api/ai/status',
+  tags: ['AI'],
+  summary: 'AI provider status, circuit breaker, and live SQL grounding snapshot',
+  security: [{ bearerAuth: [] }],
+  request: {
+    query: z.object({
+      context: z.enum(['orders', 'products', 'general']).optional(),
+    }),
+  },
+  responses: {
+    200: {
+      description: 'Portfolio-friendly AI pipeline status (no LLM call)',
+      content: { 'application/json': { schema: dataWrapper(aiStatusResponseSchema) } },
+    },
+  },
+});
+
+registry.registerPath({
   method: 'post',
   path: '/api/ai/insights',
   tags: ['AI'],
@@ -348,6 +375,102 @@ registry.registerPath({
   },
 });
 
+registry.registerPath({
+  method: 'post',
+  path: '/api/ai/enterprise/briefing',
+  tags: ['AI'],
+  summary: 'Industry executive briefing (retail, supply chain, finance, operations)',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: { content: { 'application/json': { schema: enterpriseBriefingSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Enterprise briefing with KPIs, risks, and actions',
+      content: { 'application/json': { schema: dataWrapper(enterpriseBriefingResponseSchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/ai/enterprise/risks',
+  tags: ['AI'],
+  summary: 'Industry risk register grounded in live commerce snapshot',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: { content: { 'application/json': { schema: enterpriseRisksSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Prioritized enterprise risks',
+      content: { 'application/json': { schema: dataWrapper(enterpriseRisksResponseSchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/ai/enterprise/actions',
+  tags: ['AI'],
+  summary: 'Prioritized cross-functional action plan for an industry persona',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: { content: { 'application/json': { schema: enterpriseActionsSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Enterprise action plan',
+      content: { 'application/json': { schema: dataWrapper(enterpriseActionsResponseSchema) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/ml/status',
+  tags: ['ML Lab'],
+  summary: 'ML learning lab status, curriculum, and available tasks',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Curriculum and dataset summary',
+      content: { 'application/json': { schema: dataWrapper(z.record(z.string(), z.unknown())) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/ml/features',
+  tags: ['ML Lab'],
+  summary: 'Preview engineered feature vectors from live products',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Feature preview',
+      content: { 'application/json': { schema: dataWrapper(z.record(z.string(), z.unknown())) } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/ml/experiment',
+  tags: ['ML Lab'],
+  summary: 'Train/evaluate a from-scratch ML model (regression, classification, clustering, TF-IDF)',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: { content: { 'application/json': { schema: mlExperimentSchema } } },
+  },
+  responses: {
+    200: {
+      description: 'Experiment result with metrics and teaching notes',
+      content: { 'application/json': { schema: dataWrapper(z.record(z.string(), z.unknown())) } },
+    },
+  },
+});
+
 /** Build OpenAPI 3.1 document from Zod schemas (no hand-written openapi.json). */
 export function buildOpenApiDocument(): Record<string, unknown> {
   const generator = new OpenApiGeneratorV31(registry.definitions);
@@ -365,7 +488,8 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       { name: 'Auth', description: 'JWT login and refresh token rotation' },
       { name: 'Products', description: 'Catalog and trigram search' },
       { name: 'Orders', description: 'Transactional orders' },
-      { name: 'AI', description: 'LLM-powered business insights' },
+      { name: 'AI', description: 'LLM-powered business and enterprise industry insights' },
+      { name: 'ML Lab', description: 'From-scratch ML algorithms for learning (train/evaluate on live data)' },
       { name: 'System', description: 'Health, metrics, audit' },
     ],
   }) as unknown as Record<string, unknown>;

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { createApiClient } from '../services/api.client.js';
 import type { HealthStatus, Order } from '../types/models.js';
 
 export default function DashboardPage() {
-  const { token, user } = useAuth();
+  const { token, user, can } = useAuth();
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
 
@@ -91,6 +92,32 @@ export default function DashboardPage() {
             <strong>PostgreSQL</strong> with advanced SQL. CPU tasks use <strong>Worker Threads</strong>.
           </p>
         </div>
+
+        {can('ai') && (
+          <div className="card ai-feature-card">
+            <h3>AI Business Assistant</h3>
+            <p>
+              Chat, summarize, and recommend — answers grounded in live order/product SQL with
+              OpenAI or demo mode and a circuit-breaker fallback.
+            </p>
+            <Link to="/ai" className="btn-primary ai-feature-link">
+              Open AI Assistant →
+            </Link>
+          </div>
+        )}
+
+        {can('ml') && (
+          <div className="card ml-feature-card">
+            <h3>ML Learning Lab</h3>
+            <p>
+              Hands-on classic ML: feature engineering, linear/logistic regression, k-means, and
+              TF-IDF similarity — implemented from scratch in TypeScript on your product data.
+            </p>
+            <Link to="/ml" className="btn-primary ai-feature-link">
+              Open ML Lab →
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );

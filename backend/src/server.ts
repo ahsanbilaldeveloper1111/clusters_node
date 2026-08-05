@@ -1,12 +1,18 @@
 /**
  * HTTP server — runs inside each cluster worker process.
+ * OpenTelemetry must start before Express/pg are imported (auto-instrumentation).
  */
-import { createServer } from 'node:http';
-import { env } from './config/env.js';
-import { createApp } from './app.js';
-import { logger } from './utils/logger.js';
-import { pool } from './database/pool.js';
-import { getRedis } from './cache/redis.js';
+import { startTelemetry } from './observability/telemetry.js';
+
+await startTelemetry();
+
+const { createServer } = await import('node:http');
+const { env } = await import('./config/env.js');
+const { createApp } = await import('./app.js');
+const { logger } = await import('./utils/logger.js');
+const { pool } = await import('./database/pool.js');
+const { getRedis } = await import('./cache/redis.js');
+const { startMessagingWorkers, stopMessagingWorkers } = await import('./messaging/outbox-worker.js');
 
 const app = createApp();
 const server = createServer(app);
@@ -22,6 +28,8 @@ async function start(): Promise<void> {
     }
   }
 
+  await startMessagingWorkers();
+
   server.listen(env.PORT, () => {
     logger.info(
       { port: env.PORT, pid: process.pid, workerId: process.env['WORKER_ID'] },
@@ -32,6 +40,7 @@ async function start(): Promise<void> {
 
 async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, 'Graceful shutdown started');
+  stopMessagingWorkers();
   server.close(async () => {
     await pool.end();
     const redis = getRedis();
@@ -46,6 +55,6 @@ process.on('SIGTERM', () => void shutdown('SIGTERM'));
 process.on('SIGINT', () => void shutdown('SIGINT'));
 
 start().catch((err) => {
-  logger.fatal(err);
+  console.error(err);
   process.exit(1);
 });
